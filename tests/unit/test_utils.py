@@ -9,7 +9,10 @@ from flowimds.utils.utils import read_image, write_image
 
 
 @pytest.mark.parametrize("fixture_name", ["jp_filename", "no_jp_filename"])
-def test_read_image_handles_various_paths(request: pytest.FixtureRequest, fixture_name: str) -> None:
+def test_read_image_handles_various_paths(
+    request: pytest.FixtureRequest,
+    fixture_name: str,
+) -> None:
     """Ensure ``read_image`` can load images whose paths include Unicode characters."""
 
     sample_path: Path = request.getfixturevalue(fixture_name)
@@ -18,7 +21,10 @@ def test_read_image_handles_various_paths(request: pytest.FixtureRequest, fixtur
     assert actual.dtype == np.uint8
 
 @pytest.mark.parametrize("fixture_name", ["jp_filename", "no_jp_filename"])
-def test_write_image_handles_unicode_paths(request: pytest.FixtureRequest, fixture_name: str) -> None:
+def test_write_image_handles_unicode_paths(
+    request: pytest.FixtureRequest,
+    fixture_name: str,
+) -> None:
     """Verify ``write_image`` can persist images to Unicode file paths."""
 
     sample_path: Path = request.getfixturevalue(fixture_name)

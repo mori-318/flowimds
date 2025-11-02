@@ -5,8 +5,14 @@ from typing import Any, List, Tuple
 import cv2
 import numpy as np
 
-def read_image(path: str, flags: int = cv2.IMREAD_COLOR, dtype: np.dtype = np.uint8) -> np.ndarray | None:
-    """ Read an image from the given path.
+
+def read_image(
+    path: str,
+    flags: int = cv2.IMREAD_COLOR,
+    dtype: np.dtype = np.uint8,
+) -> np.ndarray | None:
+    """Read an image from the given path.
+
     Supports paths that contain Japanese characters.
 
     Args:

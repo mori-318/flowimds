@@ -14,7 +14,11 @@ class PipelineStep(Protocol):
         """Transform the provided image and return the result."""
 
 
-def validate_size_pair(size: Sequence[int], *, argument_name: str = "size") -> tuple[int, int]:
+def validate_size_pair(
+    size: Sequence[int],
+    *,
+    argument_name: str = "size",
+) -> tuple[int, int]:
     """Ensure ``size`` is a ``(width, height)`` pair of positive integers.
 
     Args:
@@ -38,7 +42,11 @@ def validate_size_pair(size: Sequence[int], *, argument_name: str = "size") -> t
     return int(width), int(height)
 
 
-def ensure_image_has_spatial_dims(image: np.ndarray, *, argument_name: str = "image") -> None:
+def ensure_image_has_spatial_dims(
+    image: np.ndarray,
+    *,
+    argument_name: str = "image",
+) -> None:
     """Validate that ``image`` is a 2D or 3D numpy array.
 
     Args:

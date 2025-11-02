@@ -11,7 +11,10 @@ from flowimds.steps import ResizeStep
         ((32, 64), (64, 32, 3)),
     ],
 )
-def test_resize_with_valid_size(size: tuple[int, int], expected_shape: tuple[int, ...]) -> None:
+def test_resize_with_valid_size(
+    size: tuple[int, int],
+    expected_shape: tuple[int, ...],
+) -> None:
     """Verify ``ResizeStep`` resizes colour images to the configured size."""
 
     image = np.zeros((100, 100, 3), dtype=np.uint8)
