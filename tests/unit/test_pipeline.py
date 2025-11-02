@@ -138,7 +138,7 @@ def test_pipeline_records_failures_and_continues(
     assert result.processed_count == 0
     assert result.failed_count == len(input_images)
     assert sorted(Path(path) for path in result.failed_files) == input_images
-    assert not output_path.iterdir()
+    assert not any(output_path.iterdir())
     assert failing_step.call_count == len(input_images)
 
 

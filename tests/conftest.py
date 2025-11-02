@@ -119,3 +119,36 @@ def output_dir(tmp_path_factory: pytest.TempPathFactory) -> Generator[Path, None
 
     path = tmp_path_factory.mktemp("flowimds_output")
     yield path
+
+
+@pytest.fixture(scope="session")
+def others_data_root(tests_root: Path) -> Path:
+    """Return the directory that stores miscellaneous test assets."""
+
+    path = tests_root / "data" / "others"
+    if not path.exists():
+        msg = "The tests/data/others directory does not exist."
+        raise FileNotFoundError(msg)
+    return path
+
+
+@pytest.fixture
+def jp_filename(others_data_root: Path) -> Path:
+    """Return the sample image path containing Japanese characters."""
+
+    sample = others_data_root / "日本語含むパス.png"
+    if not sample.exists():
+        msg = "The sample image with Japanese filename is missing."
+        raise FileNotFoundError(msg)
+    return sample
+
+
+@pytest.fixture
+def no_jp_filename(others_data_root: Path) -> Path:
+    """Return the sample image path without Japanese characters."""
+
+    sample = others_data_root / "no_jp.png"
+    if not sample.exists():
+        msg = "The ASCII-only sample image is missing."
+        raise FileNotFoundError(msg)
+    return sample

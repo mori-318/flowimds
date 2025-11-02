@@ -58,6 +58,39 @@
 - `Pipeline` は初期化時にステップ配列、I/O 設定、再帰／構成維持オプションを受け取り、順次ステップを適用する。
 - 将来の拡張として、AI 推論結果を返すステップやメタデータ加工ステップを追加しやすい構成とする。
 
+## 4. 推奨フォルダ構成
+
+```
+flowimds/
+├── __init__.py            # パブリック API をまとめる
+├── pipeline.py            # Pipeline 本体と PipelineResult
+├── steps/                 # 個々の変換ステップ群
+│   ├── __init__.py
+│   ├── base.py            # Step プロトコル／抽象クラス
+│   ├── resize.py          # ResizeStep など
+│   ├── grayscale.py
+│   ├── rotate.py
+│   ├── flip.py
+│   ├── binarize.py
+│   └── denoise.py
+├── io/                    # 入出力やファイル探索ユーティリティ
+│   ├── __init__.py
+│   ├── discovery.py       # 再帰走査・構造維持のロジック
+│   └── paths.py           # パス操作やフィルタ
+├── cli/                   # CLI エントリーポイント（将来拡張用）
+│   ├── __init__.py
+│   └── main.py
+└── utils.py               # 共通ヘルパー（例：画像読み込み、ログ）
+
+tests/
+├── conftest.py            # パスフィクスチャ等（既に実装済み）
+├── unit/
+│   ├── test_pipeline.py   # Pipeline の単体テスト
+│   └── test_steps_*.py    # 各 Step の単体テストを段階的に追加
+└── integration/
+    └── test_cli.py など CLI 経由の統合テスト
+```
+
 ## 4. テスト駆動開発チェックリスト
 
 TDD を前提に、各機能は以下のチェックリスト順に進める。項目が完了したらチェックを付ける。ブランチは段階ごとに作成し、完了後に `develop` へマージする。
