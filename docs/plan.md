@@ -36,15 +36,25 @@
 ### 2.3 API
 
 - Python API: `Pipeline` クラスおよび補助関数をモジュールとして公開。
-- CLI: `flowimds process --input-folder ... --output-folder ... --resize 800x600 --grayscale` のようなコマンドを提供。
-- CLI からもパイプラインステップと共通設定を指定できるようにする。
+- CLI: `flowimds process --input-folder ... --output-folder ... --resize 800x600 --grayscale` のようなコマンドを提供し、API と同等の設定を指定可能にする。
 
 ## 3. パイプライン設計
 
 - 各処理を `Step` インターフェース（`apply(image) -> image`）で抽象化。
-- 代表的なステップ実装:
+- 代表的なステップ実装例:
   - `Resize(width, height)`
   - `Grayscale()`
+  - `Binarize(mode="otsu" | "fixed", threshold: Optional[int] = None)`
+    - `mode="otsu"`: Otsu 法による自動閾値決定。
+    - `mode="fixed"`: ユーザー指定の閾値 `threshold` を使用。
+  - `Denoise(mode="median" | "bilateral")`
+    - `mode="median"`: メディアンフィルタ。
+    - `mode="bilateral"`: バイラテラルフィルタ。
+  - `Rotate(angle: float)`
+    - `angle`: 回転角度（度）。
+  - `Flip(horizontal: bool = False, vertical: bool = False)`
+    - `horizontal`: 水平方向反転。
+    - `vertical`: 垂直方向反転。
 - `Pipeline` は初期化時にステップ配列、I/O 設定、再帰／構成維持オプションを受け取り、順次ステップを適用する。
 - 将来の拡張として、AI 推論結果を返すステップやメタデータ加工ステップを追加しやすい構成とする。
 
@@ -64,17 +74,23 @@ TDD を前提に、各機能は以下のチェックリスト順に進める。�
 - [ ] 実装: ファイル探索と出力パス生成ロジックを実装し、テストをパスさせる。
 - [ ] リファクタリング: I/O ユーティリティをモジュール化し、テストでカバー。
 
-### feature/image-steps
+### feature/transform-steps
 
-- [ ] テスト: `Resize`/`Grayscale` の入出力仕様を定義したテスト（サイズ・モード検証）を追加。
-- [ ] 実装: 各ステップクラスを実装してテストを通す。
-- [ ] リファクタリング: 追加ステップ用の共通ヘルパを整理。
+- [ ] テスト: `Resize`/`Grayscale`/`Rotate`/`Flip` の入出力仕様を定義したテストを追加（サイズ・モード・回転角・反転方向を検証）。
+- [ ] 実装: 各変換ステップクラスを実装してテストを通す。
+- [ ] リファクタリング: 変換ステップで共有するユーティリティやバリデーションを整理。
 
-### feature/api-cli
+### feature/binarize-step
 
-- [ ] テスト: CLI コマンドが引数を受け取り `Pipeline` を呼び出す統合テストを追加（`pytest` の `capsys` や `CliRunner` を利用）。
-- [ ] 実装: CLI エントリーポイントと API 公開関数を整備し、テストをパスさせる。
-- [ ] リファクタリング: CLI 対応ドキュメントとサンプルコードを更新。
+- [ ] テスト: Otsu 法と固定閾値を切り替えるテストを追加し、閾値引数のバリデーションを確認。
+- [ ] 実装: `BinarizeStep` を実装し、設定値に応じて正しく2値化されるようにする。
+- [ ] リファクタリング: 2値化ステップの設定やエラーハンドリングを共通化。
+
+### feature/denoise-step
+
+- [ ] テスト: メディアン／バイラテラルフィルタ適用後のノイズ低減を検証し、副作用（サイズ・型）が変わらないことを確認。
+- [ ] 実装: `DenoiseStep` を実装し、閾値処理や他ステップと組み合わせた動作を保証する。
+- [ ] リファクタリング: ノイズ除去のパラメータ管理とドキュメントを整備。
 
 ### feature/docs-polish
 
