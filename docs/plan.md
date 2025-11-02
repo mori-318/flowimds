@@ -97,7 +97,7 @@ TDD を前提に、各機能は以下のチェックリスト順に進める。�
 
 ### feature/pipeline-core
 
-- [ ] テスト: `Pipeline` がステップを順次適用し、`PipelineResult` を返すテストを追加。
+- [x] テスト: `Pipeline` がステップを順次適用し、`PipelineResult` を返すテストを追加。
 - [ ] 実装: `Step` プロトコルと `Pipeline` 本体を最小限実装し、テストをパスさせる。
 - [ ] リファクタリング: 結果クラスや例外設計を整理し、テストを通す。
 

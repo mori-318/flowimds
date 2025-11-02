@@ -5,21 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
-from typing import Any, Iterable, Protocol
+from typing import Any, Iterable, TypedDict
 
 import numpy as np
 
+from flowimds.io.discovery import collect_image_paths, IMAGE_SUFFIXES
+from flowimds.steps import PipelineStep
 from flowimds.utils.utils import read_image, write_image
-
-
-IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg"}
-
-
-class PipelineStep(Protocol):
-    """Protocol describing a pipeline step."""
-
-    def apply(self, image: np.ndarray) -> np.ndarray:
-        """Transform the provided image."""
 
 
 @dataclass
@@ -28,6 +20,15 @@ class OutputMapping:
 
     input_path: Path
     output_path: Path
+
+
+class PipelineSettings(TypedDict):
+    """Typed mapping representing pipeline configuration for a run."""
+
+    input_path: str
+    output_path: str
+    recursive: bool
+    preserve_structure: bool
 
 
 @dataclass
@@ -48,7 +49,7 @@ class PipelineResult:
     failed_files: list[str]
     output_mappings: list[OutputMapping]
     duration_seconds: float
-    settings: dict[str, Any]
+    settings: PipelineSettings
 
 
 class Pipeline:
@@ -124,15 +125,15 @@ class Pipeline:
         failed_files = list(dict.fromkeys(failed_files))
         return processed_count, failed_files, output_mappings
 
-    def _build_settings(self) -> dict[str, Any]:
-        """Return a dictionary that summarises the run configuration."""
+    def _build_settings(self) -> PipelineSettings:
+        """Return a typed dictionary that summarises the run configuration."""
 
-        return {
-            "input_path": str(self._input_path),
-            "output_path": str(self._output_path),
-            "recursive": self._recursive,
-            "preserve_structure": self._preserve_structure,
-        }
+        return PipelineSettings(
+            input_path=str(self._input_path),
+            output_path=str(self._output_path),
+            recursive=self._recursive,
+            preserve_structure=self._preserve_structure,
+        )
 
     def _apply_steps(self, image: np.ndarray) -> np.ndarray:
         """Apply pipeline steps to the provided image in sequence."""
@@ -145,22 +146,11 @@ class Pipeline:
     def _collect_image_paths(self) -> list[Path]:
         """Collect eligible image paths from the input directory."""
 
-        if not self._input_path.exists():
-            msg = f"Input path '{self._input_path}' does not exist."
-            raise FileNotFoundError(msg)
-
-        iterator: Iterable[Path]
-        if self._recursive:
-            iterator = self._input_path.rglob("*")
-        else:
-            iterator = self._input_path.glob("*")
-
-        image_paths = [
-            path
-            for path in iterator
-            if path.is_file() and path.suffix.lower() in IMAGE_SUFFIXES
-        ]
-        return sorted(image_paths, key=lambda path: path.as_posix())
+        return collect_image_paths(
+            self._input_path,
+            recursive=self._recursive,
+            suffixes=IMAGE_SUFFIXES,
+        )
 
     def _resolve_destination(self, source: Path) -> Path:
         """Resolve the output destination path for the given source.
