@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main", "develop"]
+
+jobs:
+  build-and-test:
+    name: Lint and Test
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: Sync dependencies
+        run: |
+          if [ -f pyproject.toml ]; then
+            uv sync --all-extras --dev
+          else
+            echo "pyproject.toml not found; skipping uv sync"
+          fi
+
+      - name: Run linters
+        run: |
+          if uv run python -c "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('flake8') else 1)" >/dev/null 2>&1; then
+            uv run flake8 .
+          else
+            echo "flake8 not configured; skipping"
+          fi
+          if uv run python -c "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('ruff') else 1)" >/dev/null 2>&1; then
+            uv run ruff check .
+          else
+            echo "ruff not configured; skipping"
+          fi
+          if uv run python -c "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('black') else 1)" >/dev/null 2>&1; then
+            uv run black --check .
+          else
+            echo "black not configured; skipping"
+          fi
+
+      - name: Run tests
+        run: |
+          if uv run python -c "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('pytest') else 1)" >/dev/null 2>&1; then
+            uv run pytest
+          else
+            echo "pytest not configured; skipping tests"
+          fi
