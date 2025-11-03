@@ -65,7 +65,11 @@ class RotateStep(PipelineStep):
         matrix = cv2.getRotationMatrix2D(centre, self._angle, 1.0)
 
         if self._expand:
-            new_width, new_height = self._compute_expanded_dimensions(matrix, width, height)
+            new_width, new_height = self._compute_expanded_dimensions(
+                matrix,
+                width,
+                height,
+            )
         else:
             new_width = width
             new_height = height

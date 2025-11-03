@@ -44,7 +44,10 @@ def validate_odd_integer(
     argument_name: str,
     minimum: int = 1,
 ) -> int:
-    """Validate that ``value`` is an odd integer greater than or equal to ``minimum``."""
+    """Validate that ``value`` is an odd integer.
+
+    Ensures ``value`` is at least ``minimum``.
+    """
 
     candidate = validate_positive_int(value, argument_name=argument_name)
     if candidate % 2 == 0:
