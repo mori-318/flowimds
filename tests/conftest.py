@@ -7,10 +7,30 @@ from typing import Generator
 
 import pytest
 
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.generate_test_data import main as generate_test_data
+
+
+def _data_root() -> Path:
+    """Return the expected location of the test data directory."""
+
+    return Path(__file__).resolve().parent / "data"
+
+
+def _ensure_test_data() -> Path:
+    """Ensure required image fixtures are available under ``tests/data``."""
+
+    data_root = _data_root()
+    if data_root.exists():
+        return data_root
+    generate_test_data()
+    if not data_root.exists():
+        msg = "Failed to generate test fixtures under tests/data."
+        raise RuntimeError(msg)
+    return data_root
 
 
 @pytest.fixture(scope="session")
@@ -35,7 +55,7 @@ def data_root(tests_root: Path) -> Path:
         Path: Absolute path to the ``tests/data`` directory.
     """
 
-    data_dir = tests_root / "data"
+    data_dir = _ensure_test_data()
     if not data_dir.exists():
         msg = "The tests/data directory does not exist."
         raise FileNotFoundError(msg)
