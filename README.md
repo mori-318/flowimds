@@ -43,3 +43,42 @@ Operational tips:
 2. Include test updates under the `test` type and CI/config changes under `ci`.
 3. Align pull request titles with the same format for easier tracking.
 4. Optionally enforce the format with tools such as commitlint.
+
+## Code Style and Formatting
+
+We use [Ruff](https://docs.astral.sh/ruff/) for both linting and formatting. The
+project configuration lives in `pyproject.toml` and enforces an 88 character
+line length to match Ruff's Black-compatible style.
+
+- Run lint checks:
+
+  ```bash
+  uv run ruff check
+  ```
+
+- Format code in place:
+
+  ```bash
+  uv run ruff format
+  ```
+
+- Verify formatting without applying changes (useful for CI):
+
+  ```bash
+  uv run ruff format --check
+  ```
+
+`ruff format` does not sort imports; rely on `ruff check` for import order and
+other lint diagnostics before formatting.
+
+## Test Fixtures
+
+The automated tests depend on image fixtures stored under `tests/data`. If you
+need to recreate them (for example, after cleaning the repository), run:
+
+```bash
+uv run python scripts/generate_test_data.py
+```
+
+This command regenerates all directories inside `tests/data` with deterministic
+sample images.
