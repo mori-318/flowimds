@@ -1,4 +1,5 @@
 """Tests for flowimds.utils helper functions."""
+
 from pathlib import Path
 
 import cv2
@@ -19,6 +20,7 @@ def test_read_image_handles_various_paths(
     actual = read_image(str(sample_path))
     assert actual is not None
     assert actual.dtype == np.uint8
+
 
 @pytest.mark.parametrize("fixture_name", ["jp_filename", "no_jp_filename"])
 def test_write_image_handles_unicode_paths(
