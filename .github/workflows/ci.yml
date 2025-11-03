@@ -42,6 +42,7 @@ jobs:
           fi
           if uv run python -c "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('ruff') else 1)" >/dev/null 2>&1; then
             uv run ruff check .
+            uv run ruff format --check .
           else
             echo "ruff not configured; skipping"
           fi
