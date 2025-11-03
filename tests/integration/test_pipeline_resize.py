@@ -5,9 +5,9 @@ from pathlib import Path
 import cv2
 import pytest
 
-from flowimds.io.discovery import collect_image_paths
 from flowimds.pipeline import Pipeline
 from flowimds.steps import ResizeStep
+from flowimds.utils.image_discovery import collect_image_paths
 
 
 @pytest.mark.usefixtures("simple_input_dir")

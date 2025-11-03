@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 import pytest
 
-from flowimds.utils.utils import read_image, write_image
+from flowimds.utils.image_io import read_image, write_image
 
 
 @pytest.mark.parametrize("fixture_name", ["jp_filename", "no_jp_filename"])

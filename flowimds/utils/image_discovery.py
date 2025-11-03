@@ -1,9 +1,8 @@
-"""Utilities for discovering image files within directories."""
-
-from __future__ import annotations
+"""Helper functions for discovering image files within directories."""
 
 from pathlib import Path
 from typing import Iterable
+
 
 IMAGE_SUFFIXES: set[str] = {".png", ".jpg", ".jpeg"}
 
@@ -17,7 +16,7 @@ def collect_image_paths(
     """Return sorted image file paths under ``root``.
 
     Args:
-        root: Directory to search.
+        root: Path to the directory to search.
         recursive: Whether to traverse subdirectories recursively.
         suffixes: Optional iterable of file suffixes to include.
 

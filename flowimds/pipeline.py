@@ -9,9 +9,9 @@ from typing import Any, Iterable, TypedDict
 
 import numpy as np
 
-from flowimds.io.discovery import collect_image_paths, IMAGE_SUFFIXES
 from flowimds.steps import PipelineStep
-from flowimds.utils.utils import read_image, write_image
+from flowimds.utils.image_discovery import IMAGE_SUFFIXES, collect_image_paths
+from flowimds.utils.image_io import read_image, write_image
 
 
 @dataclass
