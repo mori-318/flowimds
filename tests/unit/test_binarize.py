@@ -30,11 +30,13 @@ def test_binarize_fixed_threshold_matches_opencv() -> None:
 def test_binarize_otsu_mode_converts_colour_images() -> None:
     """Otsu mode should handle colour inputs by converting to grayscale."""
 
-    colour = np.dstack([
-        np.tile(np.array([0, 128, 255], dtype=np.uint8), (3, 1)),
-        np.tile(np.array([255, 128, 0], dtype=np.uint8), (3, 1)),
-        np.tile(np.array([64, 64, 64], dtype=np.uint8), (3, 1)),
-    ]).transpose(1, 0, 2)
+    colour = np.dstack(
+        [
+            np.tile(np.array([0, 128, 255], dtype=np.uint8), (3, 1)),
+            np.tile(np.array([255, 128, 0], dtype=np.uint8), (3, 1)),
+            np.tile(np.array([64, 64, 64], dtype=np.uint8), (3, 1)),
+        ]
+    ).transpose(1, 0, 2)
 
     step = BinarizeStep(mode="otsu")
     actual = step.apply(colour)
