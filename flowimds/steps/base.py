@@ -1,9 +1,10 @@
-"""Protocol definitions for pipeline steps."""
+"""Protocol and helper utilities for pipeline steps."""
 
 from __future__ import annotations
 
 from typing import Protocol, Sequence
 
+import cv2
 import numpy as np
 
 
@@ -12,6 +13,47 @@ class PipelineStep(Protocol):
 
     def apply(self, image: np.ndarray) -> np.ndarray:
         """Transform the provided image and return the result."""
+
+
+def validate_positive_int(value: int, *, argument_name: str) -> int:
+    """Validate that ``value`` is a positive integer.
+
+    Args:
+        value: Candidate value.
+        argument_name: Name used in the exception message.
+
+    Returns:
+        Normalised integer value.
+
+    Raises:
+        ValueError: If ``value`` is not a positive integer.
+    """
+
+    if isinstance(value, bool) or not isinstance(value, int):
+        msg = f"{argument_name} must be a positive integer"
+        raise ValueError(msg)
+    if value <= 0:
+        msg = f"{argument_name} must be greater than zero"
+        raise ValueError(msg)
+    return int(value)
+
+
+def validate_odd_integer(
+    value: int,
+    *,
+    argument_name: str,
+    minimum: int = 1,
+) -> int:
+    """Validate that ``value`` is an odd integer greater than or equal to ``minimum``."""
+
+    candidate = validate_positive_int(value, argument_name=argument_name)
+    if candidate % 2 == 0:
+        msg = f"{argument_name} must be an odd integer"
+        raise ValueError(msg)
+    if candidate < minimum:
+        msg = f"{argument_name} must be at least {minimum}"
+        raise ValueError(msg)
+    return candidate
 
 
 def validate_size_pair(
@@ -60,3 +102,14 @@ def ensure_image_has_spatial_dims(
     if image.ndim not in {2, 3}:
         msg = f"{argument_name} must be a 2D or 3D numpy array"
         raise ValueError(msg)
+
+
+def to_grayscale(image: np.ndarray) -> np.ndarray:
+    """Convert ``image`` to grayscale if necessary."""
+
+    ensure_image_has_spatial_dims(image)
+    if image.ndim == 2:
+        return image
+    if image.ndim == 3 and image.shape[2] == 1:
+        return image[:, :, 0]
+    return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
