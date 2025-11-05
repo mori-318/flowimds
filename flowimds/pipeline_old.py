@@ -1,16 +1,13 @@
-"""The newest pipeline core implementation after version 0.2.0."""
+"""Pipeline core implementation prior to version 0.2.0."""
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-import os
 from pathlib import Path
 from time import perf_counter
 from typing import Iterable, TypedDict
 
 import numpy as np
-from tqdm import tqdm
 
 from flowimds.steps import PipelineStep
 from flowimds.utils.image_discovery import IMAGE_SUFFIXES, collect_image_paths
@@ -32,8 +29,6 @@ class PipelineSettings(TypedDict):
     output_path: str | None
     recursive: bool
     preserve_structure: bool
-    worker_count: int
-    log_enabled: bool
 
 
 @dataclass
@@ -67,8 +62,6 @@ class Pipeline:
         output_path: Path | str | None = None,
         recursive: bool = False,
         preserve_structure: bool = False,
-        worker_count: int | None = None,
-        log: bool = False,
     ) -> None:
         """Initialise the pipeline with the provided configuration.
 
@@ -80,11 +73,6 @@ class Pipeline:
                 when using :meth:`run` or :meth:`run_on_paths`.
             recursive: Whether to traverse the input directory recursively.
             preserve_structure: Whether to mirror the input directory structure.
-            worker_count: Maximum number of worker threads used to process
-                images in parallel. ``None`` defaults to roughly 70% of the
-                CPU cores reported by :func:`os.cpu_count`.
-            log: Whether to emit informational logs and display progress
-                updates during processing.
         """
 
         self._steps = list(steps)
@@ -92,8 +80,6 @@ class Pipeline:
         self._output_path = Path(output_path) if output_path is not None else None
         self._recursive = recursive
         self._preserve_structure = preserve_structure
-        self._worker_count = worker_count
-        self._log_enabled = log
 
     def run(self) -> PipelineResult:
         """Execute the pipeline and return the aggregated result."""
@@ -172,155 +158,28 @@ class Pipeline:
     ) -> tuple[int, list[Path], list[OutputMapping]]:
         """Process the provided image paths and persist the results."""
 
-        materialised_paths = list(image_paths)
-        if not materialised_paths:
-            return 0, [], []
-
-        worker_count = self._resolve_worker_count()
-
-        if self._log_enabled:
-            logical_cores = os.cpu_count() or worker_count
-            print(
-                "[flowimds] Starting pipeline with "
-                f"{len(materialised_paths)} images | "
-                f"workers: {worker_count} / logical cores: {logical_cores}"
-            )
-
-        progress_bar = self._create_progress_bar(len(materialised_paths))
-        try:
-            if worker_count <= 1:
-                return self._process_images_sequential(
-                    materialised_paths,
-                    progress_bar,
-                )
-            return self._process_images_parallel(
-                materialised_paths,
-                worker_count,
-                progress_bar,
-            )
-        finally:
-            if progress_bar is not None:
-                progress_bar.close()
-
-    def _process_images_sequential(
-        self,
-        image_paths: Iterable[Path],
-        progress_bar,
-    ) -> tuple[int, list[Path], list[OutputMapping]]:
-        """Process images sequentially and return execution statistics."""
-
         processed_count = 0
         failed_files: list[Path] = []
         output_mappings: list[OutputMapping] = []
 
-        total = len(image_paths)
-        progress_tracker = self._create_progress_tracker(total, progress_bar)
-        for index, image_path in enumerate(image_paths, start=1):
-            success, destination = self._process_single_image(image_path)
-            if success and destination is not None:
+        for image_path in image_paths:
+            try:
+                image = read_image(str(image_path))
+                if image is None:
+                    failed_files.append(image_path)
+                    continue
+                image = self._apply_steps(image)
+                destination = self._resolve_destination(image_path)
+                if not write_image(str(destination), image):
+                    failed_files.append(image_path)
+                    continue
                 output_mappings.append(OutputMapping(image_path, destination))
                 processed_count += 1
-            else:
+            except Exception:  # pragma: no cover - defensive
                 failed_files.append(image_path)
-            progress_tracker(index)
 
         failed_files = list(dict.fromkeys(failed_files))
         return processed_count, failed_files, output_mappings
-
-    def _process_images_parallel(
-        self,
-        image_paths: Iterable[Path],
-        worker_count: int,
-        progress_bar,
-    ) -> tuple[int, list[Path], list[OutputMapping]]:
-        """Process images in parallel using a thread pool."""
-
-        processed_count = 0
-        failed_files: list[Path] = []
-        output_mappings: list[OutputMapping] = []
-
-        total = len(image_paths)
-        completed = 0
-        progress_tracker = self._create_progress_tracker(total, progress_bar)
-
-        with ThreadPoolExecutor(max_workers=worker_count) as executor:
-            futures = [
-                executor.submit(self._process_single_image, path)
-                for path in image_paths
-            ]
-            for image_path, future in zip(image_paths, futures):
-                try:
-                    success, destination = future.result()
-                except Exception:  # pragma: no cover - defensive
-                    success, destination = False, None
-                if success and destination is not None:
-                    output_mappings.append(OutputMapping(image_path, destination))
-                    processed_count += 1
-                else:
-                    failed_files.append(image_path)
-                completed += 1
-                progress_tracker(completed)
-
-        failed_files = list(dict.fromkeys(failed_files))
-        return processed_count, failed_files, output_mappings
-
-    def _process_single_image(
-        self,
-        image_path: Path,
-    ) -> tuple[bool, Path | None]:
-        """Process a single image and return success flag and destination."""
-
-        try:
-            image = read_image(str(image_path))
-            if image is None:
-                return False, None
-            image = self._apply_steps(image)
-            destination = self._resolve_destination(image_path)
-            if not write_image(str(destination), image):
-                return False, None
-            return True, destination
-        except Exception:  # pragma: no cover - defensive
-            return False, None
-
-    def _resolve_worker_count(self) -> int:
-        """Return the effective worker count for image processing."""
-
-        if self._worker_count is not None and self._worker_count > 0:
-            return self._worker_count
-        cpu_count = os.cpu_count() or 1
-        recommended = round(cpu_count * 0.7)
-        return max(1, min(cpu_count, recommended))
-
-    def _create_progress_tracker(self, total: int, progress_bar):
-        """Return a callable that updates progress with minimal branching."""
-
-        if not self._log_enabled or total <= 0:
-            return lambda _completed: None
-
-        if progress_bar is not None:
-            return lambda completed: progress_bar.update(1)
-
-        threshold = max(1, total // 10)
-
-        def _log_progress(completed: int) -> None:
-            if (
-                completed == 1
-                or completed == total
-                or completed % threshold == 0
-            ):
-                print(
-                    f"[flowimds] Progress: {completed}/{total} images processed"
-                )
-
-        return _log_progress
-
-    def _create_progress_bar(self, total: int):
-        """Create and return a tqdm progress bar if available."""
-
-        if not self._log_enabled or total <= 0:
-            return None
-
-        return tqdm(total=total, desc="flowimds", unit="image", leave=False)
 
     def _build_settings(self) -> PipelineSettings:
         """Return a typed dictionary that summarises the run configuration."""
@@ -332,8 +191,6 @@ class Pipeline:
             ),
             recursive=self._recursive,
             preserve_structure=self._preserve_structure,
-            worker_count=self._resolve_worker_count(),
-            log_enabled=self._log_enabled,
         )
 
     def _apply_steps(self, image: np.ndarray) -> np.ndarray:

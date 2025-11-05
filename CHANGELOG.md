@@ -11,6 +11,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 - _Nothing yet_
 
+## [0.1.2] - yyyy-mm-dd
+
+<!-- markdownlint-disable-next-line MD024 -->
+### Changed
+
+- Introduced parallel execution option for `Pipeline` (implementation in progress).
+- Performance comparison pending; see table template below for recording baseline vs. optimized results.
+
+| Step combination | Baseline duration (s) | Parallel duration (s) | Speed-up | Notes |
+| ---------------- | --------------------- | --------------------- | -------- | ----- |
+| Resize → Grayscale | TBD | TBD | TBD | |
+| Resize → Denoise → Rotate | TBD | TBD | TBD | |
+| Custom composite flow | TBD | TBD | TBD | |
+
+<!-- TODO: Update table once measurements are available -->
+
 ## [0.1.0] - 2025-11-05
 
 <!-- markdownlint-disable-next-line MD024 -->
