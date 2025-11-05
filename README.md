@@ -4,6 +4,44 @@
 
 A simple and easy-to-use library for batch image directory processing.
 
+## Usage
+
+All primary classes are re-exported from the package root, so you can work with
+the pipeline and processing steps through a concise namespace:
+
+```python
+from pathlib import Path
+
+import flowimds as fi
+
+pipeline = fi.Pipeline(
+    steps=[fi.ResizeStep((128, 128)), fi.GrayscaleStep()],
+    input_path=Path("examples/input"),
+    output_path=Path("examples/output"),
+    recursive=True,
+    preserve_structure=True,
+)
+
+result = pipeline.run()
+print(f"Processed {result.processed_count} images")
+```
+
+When you already have a list of image paths or in-memory images, the pipeline
+offers dedicated helpers:
+
+```python
+# Process an explicit list of files and persist the results
+result = pipeline.run_on_paths(["/tmp/example.png"])
+
+# Transform in-memory images without touching the filesystem
+from flowimds import read_image
+
+arrays = pipeline.run_on_arrays([read_image("/tmp/example.png")])
+```
+
+See `samples/README.md` for runnable examples that generate inputs and inspect
+the produced outputs.
+
 ## Branching Strategy
 
 We follow a GitFlow-based workflow to keep the library stable while enabling parallel development.
