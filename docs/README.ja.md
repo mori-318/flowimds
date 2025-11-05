@@ -2,49 +2,140 @@
 
 [English README](../README.md)
 
-バッチ形式で画像ディレクトリを処理するためのシンプルで使いやすいPythonライブラリです。
+> ℹ️ バッジのURLは公開リポジトリに合わせて更新してください。
 
-## ブランチ運用方針
+[![CI](https://github.com/your-org/flowimds/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/flowimds/actions/workflows/ci.yml)
 
-本プロジェクトではGitFlowをベースにした運用を行います。プロジェクトの規模やリリースサイクルに応じて柔軟に調整しつつ、以下のルールを基本とします。
+`flowimds` は、画像ディレクトリを一括処理するためのオープンソースPythonライブラリです。リサイズ、グレースケール化、二値化、ノイズ除去、回転、反転などのステップを組み合わせてパイプラインを定義し、フォルダ単位・ファイルリスト指定・NumPy配列など多様な入力に対して実行できます。
 
-### 基本ブランチ
+## 目次
 
-- **main**: 常にリリース可能な安定版コードを保持します。公開時にはリリースタグ（例: `v1.2.0`）を付与します。
-- **develop**: 次回リリース候補を統合するブランチです。通常の開発はここから派生したブランチで行います。
+1. [特徴](#特徴)
+2. [インストール](#インストール)
+3. [クイックスタート](#クイックスタート)
+4. [利用ガイド](#利用ガイド)
+5. [CLIについて](#cliについて)
+6. [ロードマップ](#ロードマップ)
+7. [サポート](#サポート)
+8. [コントリビューション](#コントリビューション)
+9. [開発環境の整え方](#開発環境の整え方)
+10. [ライセンス](#ライセンス)
+11. [プロジェクト状況](#プロジェクト状況)
+12. [謝辞](#謝辞)
 
-### 補助ブランチ
+## 特徴
 
-1. **feature/**: 個別機能や修正用の短命ブランチです。`develop`から派生し、レビューとCIが完了したら`--no-ff`で`develop`へマージして削除します。
-2. **release/**: リリース準備のため`develop`から派生します。バージョン番号やドキュメントの最終調整を行い、`main`へマージしてタグ付けし、その後`develop`へもマージバックします。
-3. **hotfix/**: 緊急修正用のブランチです。`main`から派生し、修正後は`main`と`develop`の双方へマージします。
+- ディレクトリ全体のバッチ処理と再帰走査に対応。
+- 入力フォルダ構成を出力側で再現するオプションを提供。
+- リサイズ・グレースケール・回転・反転・二値化・ノイズ除去など豊富な標準ステップ。
+- ディレクトリ走査、明示的なファイルリスト、NumPy配列のいずれでも実行可能。
+- テスト用の画像データを再生成できる決定的なスクリプトを同梱。
 
-## コントリビューション手順
+## インストール
 
-1. `main`を最新化: `git pull origin main`
-2. `develop`へ切り替え（存在しない場合は`main`から作成）: `git checkout develop`
-3. 作業ブランチの作成: `git checkout -b feature/<topic>`
-4. PEP 8に沿って実装し、必要に応じてテストを追加。コミット後にリモートへプッシュ。
-5. `develop`向けのPull Requestを作成し、CIが通過しレビュー承認を得たらマージ。
-6. マージ後は作業ブランチを削除してリポジトリを整理します。
+### 必要要件
 
-## コミットメッセージ規約
+- Python 3.12 以上
+- 依存管理に `uv` もしくは `pip`
 
-[Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/#summary) をベースにしたシンプルなルールを適用します。
+### PyPI（公開後）からのインストール
 
-- フォーマット: `<type>[optional scope]: <description>`。必要に応じて本文とフッターを追加します。
-- タイプ: `feat`, `fix`, `docs`, `test`, `refactor`, `chore`, `ci` などから選択します。
-- スコープ: 任意でモジュール名を括弧付きで記述（例: `feat(parser): ...`）。
-- 説明: 50文字以内を目安に命令形で簡潔に記述します。
-- 本文／フッター: 補足情報やIssue番号、重大な変更は `BREAKING CHANGE:` で明示します。
+```bash
+pip install flowimds
+```
 
-運用上のポイント:
+### ソースコードから利用
 
-1. 1コミット1トピックを意識し、変更内容を小さく保ちます。
-2. テスト更新は`test`、CI設定変更は`ci`など、タイプと内容を揃えます。
-3. PRタイトルも同形式で揃えると追跡しやすくなります。
-4. 必要に応じてcommitlintなどで自動チェックを行います。
+```bash
+git clone https://github.com/your-org/flowimds.git
+cd flowimds
+uv sync --all-extras --dev
+```
+
+## クイックスタート
+
+```python
+from pathlib import Path
+
+import flowimds as fi
+
+pipeline = fi.Pipeline(
+    steps=[fi.ResizeStep((128, 128)), fi.GrayscaleStep()],
+    input_path=Path("examples/input"),
+    output_path=Path("examples/output"),
+    recursive=True,
+    preserve_structure=True,
+)
+
+result = pipeline.run()
+print(f"Processed {result.processed_count} images")
+```
+
+## 利用ガイド
+
+- **明示的なパス指定**: `pipeline.run_on_paths([...])` を使うと、指定したファイルだけを処理して出力に保存できます。
+- **インメモリ処理**: `pipeline.run_on_arrays([...])` で NumPy 配列を直接処理できます。
+- **サンプル**: `samples/README.md` に入力データ生成および結果確認の例があります。
+
+## CLIについて
+
+将来的に CLI (`flowimds process ...`) を提供予定です。進捗は[ロードマップ](#ロードマップ)を参照してください。
+
+## ロードマップ
+
+主要なマイルストーンと今後の予定は [`docs/plan.md`](plan.md) にまとめています。
+
+- v1.0: パイプライン実装と結果レポート機能
+- CLI ツールの提供
+- AI 推論ステップの追加検討
+
+## サポート
+
+問題報告や質問はリポジトリ公開後に Issue Tracker で受け付けます。それまでの間はディスカッション等で問い合わせてください。
+
+## コントリビューション
+
+GitFlow に基づく運用を推奨しています。
+
+- **main**: 常にリリース可能な安定版。`vX.Y.Z` 形式でタグ付けします。
+- **develop**: 次期リリース候補の統合ブランチ。
+- **feature/**, **release/**, **hotfix/** ブランチで個別対応。
+
+Pull Request を送る前に以下を実施してください。
+
+1. `develop` から作業ブランチを切る。
+2. Lint・テストが全て成功することを確認（[開発環境の整え方](#開発環境の整え方)参照）。
+3. コミットメッセージは [Conventional Commits](https://www.conventionalcommits.org/ja/v1.0.0/) に従って記述。
+
+## 開発環境の整え方
+
+```bash
+# 依存関係の同期
+uv sync --all-extras --dev
+
+# Lint / Format
+uv run black --check .
+uv run ruff check .
+uv run ruff format --check .
+uv run flake8 .
+
+# テスト実行
+uv run pytest
+
+# テスト用データの再生成
+uv run python scripts/generate_test_data.py
+```
 
 ## ライセンス
 
-ライセンス情報は後日追加予定です。
+[MIT License](../LICENSE) に基づいて公開しています。
+
+## プロジェクト状況
+
+初の安定版リリースに向けて開発中です。タグ付きリリースをお待ちください。
+
+## 謝辞
+
+- [NumPy](https://numpy.org/) による配列処理基盤
+- [OpenCV](https://opencv.org/) による画像入出力
+- [uv](https://github.com/astral-sh/uv) と [Ruff](https://docs.astral.sh/ruff/) による開発ワークフロー支援

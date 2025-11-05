@@ -2,9 +2,62 @@
 
 [日本語 README](docs/README.ja.md)
 
-A simple and easy-to-use library for batch image directory processing.
+> ℹ️ バッジの URL は実際のリポジトリ公開後に更新してください。
 
-## Usage
+[![CI](https://github.com/your-org/flowimds/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/flowimds/actions/workflows/ci.yml)
+
+`flowimds` is an open-source Python library for batch image directory
+processing. It lets you describe pipelines composed of reusable steps (resize,
+grayscale, binarise, denoise, rotate, flip, …) and execute them against folders,
+lists of file paths, or in-memory NumPy arrays.
+
+## Table of contents
+
+1. [Features](#features)
+2. [Installation](#installation)
+3. [Quick start](#quick-start)
+4. [Usage guide](#usage-guide)
+5. [Command-line interface](#command-line-interface)
+6. [Project roadmap](#project-roadmap)
+7. [Support](#support)
+8. [Contributing](#contributing)
+9. [Development setup](#development-setup)
+10. [License](#license)
+11. [Project status](#project-status)
+12. [Acknowledgements](#acknowledgements)
+
+## Features
+
+- Batch processing for entire directories with optional recursive traversal.
+- Configurable output structure that can mirror the input hierarchy.
+- Rich standard step library: resize, grayscale, rotate, flip, binarise, and
+  denoise.
+- Multiple execution modes: directory scanning, explicit path lists, or pure
+  in-memory processing.
+- Deterministic test data generators for reproducible fixtures.
+
+## Installation
+
+### Requirements
+
+- Python 3.12+
+- `uv` or `pip` for dependency management
+
+### From PyPI (after publishing)
+
+```bash
+pip install flowimds
+```
+
+### From source
+
+```bash
+git clone https://github.com/your-org/flowimds.git
+cd flowimds
+uv sync --all-extras --dev
+```
+
+## Quick start
 
 All primary classes are re-exported from the package root, so you can work with
 the pipeline and processing steps through a concise namespace:
@@ -26,97 +79,83 @@ result = pipeline.run()
 print(f"Processed {result.processed_count} images")
 ```
 
-When you already have a list of image paths or in-memory images, the pipeline
-offers dedicated helpers:
+## Usage guide
 
-```python
-# Process an explicit list of files and persist the results
-result = pipeline.run_on_paths(["/tmp/example.png"])
+- **Explicit paths**: `pipeline.run_on_paths([...])` processes an explicit list
+  of images and persists the outputs.
+- **In-memory arrays**: `pipeline.run_on_arrays([...])` applies the pipeline to
+  NumPy arrays without touching the filesystem.
+- **Sample fixtures**: See `samples/README.md` for runnable examples that
+  generate inputs and inspect the produced outputs.
 
-# Transform in-memory images without touching the filesystem
-from flowimds import read_image
+## Command-line interface
 
-arrays = pipeline.run_on_arrays([read_image("/tmp/example.png")])
-```
+The library is designed to expose a CLI in future releases. Track progress in
+the [project roadmap](#project-roadmap) and follow upcoming releases for CLI
+availability.
 
-See `samples/README.md` for runnable examples that generate inputs and inspect
-the produced outputs.
+## Project roadmap
 
-## Branching Strategy
+Development milestones and future work are tracked in
+[`docs/plan.md`](docs/plan.md). Highlights include:
 
-We follow a GitFlow-based workflow to keep the library stable while enabling parallel development.
+- v1.0 pipeline implementation with reusable steps and result reporting.
+- Future CLI tooling for batch execution from the terminal.
+- Potential AI-driven pipeline steps for classification or anomaly detection.
 
-### Main branches
+## Support
 
-- **main**: Always holds release-ready code. Every public release is tagged (for example, `v1.2.0`).
-- **develop**: Aggregates the latest changes intended for the upcoming release. Most feature work branches off from here.
+Questions and bug reports are welcome via the GitHub issue tracker once the
+repository is public. Until then, feel free to open a discussion thread or
+contact the maintainers directly.
 
-### Supporting branches
+## Contributing
 
-1. **feature/**: Short-lived branches for individual enhancements. Branch off from `develop`, open a pull request, and merge back with `--no-ff` once reviews and checks pass.
-2. **release/**: Created from `develop` when preparing a release. Finalizes version numbers and docs, then merges into both `main` (with a tag) and back into `develop`.
-3. **hotfix/**: Urgent fixes branched from `main`. After verification, merge into both `main` and `develop` to keep histories aligned.
+We follow a GitFlow-based workflow to keep the library stable while enabling
+parallel development:
 
-## Contribution Workflow
+- **main**: release-ready code (tagged as `vX.Y.Z`).
+- **develop**: staging area for the next release.
+- **feature/**, **release/**, **hotfix/** branches support focused work.
 
-1. Ensure `main` is up to date: `git pull origin main`.
-2. Switch to `develop` (create it from `main` if it does not exist) and branch off: `git checkout develop`, `git checkout -b feature/<topic>`.
-3. Commit changes following PEP 8, add tests when appropriate, and push the branch.
-4. Open a pull request targeting `develop`, make sure CI passes, and obtain at least one approval.
-5. After merging, delete the feature branch to keep the repository tidy.
+Before opening a pull request:
 
-## Commit Message Guidelines
+1. Check out a topic branch from `develop`.
+2. Ensure lint and test commands pass (see [development setup](#development-setup)).
+3. Use [Conventional Commits](https://www.conventionalcommits.org/) for commit
+   messages.
 
-We adopt a lightweight rule set based on [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/#summary):
-
-- Format: `<type>[optional scope]: <description>` with an optional body and footer.
-- Types: start with `feat`, `fix`, `docs`, `test`, `refactor`, `chore`, `ci` as needed.
-- Scope: optional module name in parentheses, e.g., `feat(parser): ...`.
-- Description: 50 characters or fewer, written in the imperative mood.
-- Body/footers: add extra context, issue references, or `BREAKING CHANGE:` when relevant.
-
-Operational tips:
-
-1. Keep commits focused; prefer “one topic per commit.”
-2. Include test updates under the `test` type and CI/config changes under `ci`.
-3. Align pull request titles with the same format for easier tracking.
-4. Optionally enforce the format with tools such as commitlint.
-
-## Code Style and Formatting
-
-We use [Ruff](https://docs.astral.sh/ruff/) for both linting and formatting. The
-project configuration lives in `pyproject.toml` and enforces an 88 character
-line length to match Ruff's Black-compatible style.
-
-- Run lint checks:
-
-  ```bash
-  uv run ruff check
-  ```
-
-- Format code in place:
-
-  ```bash
-  uv run ruff format
-  ```
-
-- Verify formatting without applying changes (useful for CI):
-
-  ```bash
-  uv run ruff format --check
-  ```
-
-`ruff format` does not sort imports; rely on `ruff check` for import order and
-other lint diagnostics before formatting.
-
-## Test Fixtures
-
-The automated tests depend on image fixtures stored under `tests/data`. If you
-need to recreate them (for example, after cleaning the repository), run:
+## Development setup
 
 ```bash
+# Install dependencies
+uv sync --all-extras --dev
+
+# Lint and format
+uv run black --check .
+uv run ruff check .
+uv run ruff format --check .
+uv run flake8 .
+
+# Run tests
+uv run pytest
+
+# Regenerate deterministic fixtures when needed
 uv run python scripts/generate_test_data.py
 ```
 
-This command regenerates all directories inside `tests/data` with deterministic
-sample images.
+## License
+
+This project is released under the [MIT License](LICENSE).
+
+## Project status
+
+The project is under active development, targeting the first public release.
+Watch the repository for tagged versions once the release workflow is in place.
+
+## Acknowledgements
+
+- Built with [NumPy](https://numpy.org/).
+- Image I/O powered by [OpenCV](https://opencv.org/).
+- Packaging and workflow tooling driven by [uv](https://github.com/astral-sh/uv)
+  and [Ruff](https://docs.astral.sh/ruff/).
