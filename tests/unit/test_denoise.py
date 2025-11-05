@@ -63,7 +63,12 @@ def test_denoise_bilateral_requires_positive_parameters() -> None:
         DenoiseStep(mode="bilateral", diameter=5, sigma_color=0)
 
     with pytest.raises(ValueError):
-        DenoiseStep(mode="bilateral", diameter=5, sigma_color=1.0, sigma_space=0)
+        DenoiseStep(
+            mode="bilateral",
+            diameter=5,
+            sigma_color=1.0,
+            sigma_space=0,
+        )
 
 
 def test_denoise_rejects_unknown_mode() -> None:

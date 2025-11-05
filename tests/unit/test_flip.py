@@ -31,7 +31,7 @@ def test_flip_vertical_matches_numpy_flipud() -> None:
 
 
 def test_flip_both_axes_matches_numpy_combination() -> None:
-    """Enabling both axes should equal sequential horizontal and vertical flips."""
+    """Enabling both axes should match sequential horizontal and vertical flips."""
 
     image = np.arange(16, dtype=np.uint8).reshape(4, 4)
 

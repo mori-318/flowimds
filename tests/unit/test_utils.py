@@ -14,7 +14,7 @@ def test_read_image_handles_various_paths(
     request: pytest.FixtureRequest,
     fixture_name: str,
 ) -> None:
-    """Ensure ``read_image`` can load images whose paths include Unicode characters."""
+    """Ensure ``read_image`` can load images with Unicode characters in paths."""
 
     sample_path: Path = request.getfixturevalue(fixture_name)
     actual = read_image(str(sample_path))
