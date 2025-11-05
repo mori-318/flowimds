@@ -13,14 +13,13 @@ lists of file paths, or in-memory NumPy arrays.
 2. [Installation](#installation)
 3. [Quick start](#quick-start)
 4. [Usage guide](#usage-guide)
-5. [Command-line interface](#command-line-interface)
-6. [Project roadmap](#project-roadmap)
-7. [Support](#support)
-8. [Contributing](#contributing)
-9. [Development setup](#development-setup)
-10. [License](#license)
-11. [Project status](#project-status)
-12. [Acknowledgements](#acknowledgements)
+5. [Benchmarking](#benchmarking)
+6. [Support](#support)
+7. [Contributing](#contributing)
+8. [Development setup](#development-setup)
+9. [License](#license)
+10. [Project status](#project-status)
+11. [Acknowledgements](#acknowledgements)
 
 ## Features
 
@@ -90,6 +89,25 @@ print(f"Processed {result.processed_count} images")
 
 See [docs/usage.md](docs/usage.md) for a complete walkthrough with code
 snippets and configuration tips.
+
+## Benchmarking
+
+Use the benchmark helper script to compare the legacy implementation with the
+current pipeline. The command below relies on `uv` so that dependencies and the
+virtual environment are handled consistently:
+
+```bash
+uv run python scripts/benchmark_pipeline.py --count 1000 --workers 4
+```
+
+- `--count` controls how many synthetic images are generated (default `5000`).
+- `--workers` sets the maximum parallel worker count (`0` auto-detects CPUs).
+- `--output-dir` defines where temporary artefacts are written (default
+  `benchmarks`). The directory is removed automatically when the script exits.
+
+For reproducible comparisons across runs, specify `--seed` (default `42`). The
+script prints timing summaries for each pipeline variant and cleans up the
+temporary outputs afterward.
 
 ## Support
 
