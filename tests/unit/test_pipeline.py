@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 
 from flowimds.pipeline import Pipeline, PipelineResult
+from flowimds.steps import ResizeStep
 
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg"}
 
@@ -175,3 +176,56 @@ def test_pipeline_honours_recursive_flag(
     assert recursive_result.processed_count == len(all_images)
     assert non_recursive_step.call_count == len(top_level_images)
     assert recursive_step.call_count == len(all_images)
+
+
+def test_pipeline_run_on_paths_processes_explicit_list(
+    simple_input_dir: Path,
+    output_dir: Path,
+) -> None:
+    """`Pipeline.run_on_paths` should process the provided file list only."""
+
+    target_size = (28, 28)
+    image_paths = _collect_images(simple_input_dir, recursive=False)
+
+    pipeline = Pipeline(
+        input_path=simple_input_dir,
+        output_path=output_dir,
+        steps=[ResizeStep(target_size)],
+        recursive=False,
+        preserve_structure=False,
+    )
+
+    result = pipeline.run_on_paths(image_paths)
+
+    assert result.processed_count == len(image_paths)
+    assert result.failed_count == 0
+    assert not result.failed_files
+    assert all(mapping.output_path.exists() for mapping in result.output_mappings)
+    for mapping in result.output_mappings:
+        image = cv2.imread(str(mapping.output_path))
+        assert image is not None
+        height, width = image.shape[:2]
+        assert (width, height) == target_size
+
+
+def test_pipeline_run_on_arrays_returns_transformed_images(
+    simple_input_dir: Path,
+) -> None:
+    """`Pipeline.run_on_arrays` should return transformed images in memory."""
+
+    image_paths = _collect_images(simple_input_dir, recursive=False)
+    arrays = [cv2.imread(str(path), cv2.IMREAD_COLOR) for path in image_paths]
+
+    pipeline = Pipeline(
+        input_path=simple_input_dir,
+        output_path=simple_input_dir,
+        steps=[ResizeStep((16, 16))],
+        recursive=False,
+        preserve_structure=False,
+    )
+
+    transformed_images = pipeline.run_on_arrays(arrays)
+
+    assert len(transformed_images) == len(arrays)
+    for transformed in transformed_images:
+        assert transformed.shape[:2] == (16, 16)
