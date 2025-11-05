@@ -88,26 +88,9 @@ print(f"Processed {result.processed_count} images")
 - **Sample fixtures**: See `samples/README.md` for runnable examples that
   generate inputs and inspect the produced outputs.
 
-## Command-line interface
-
-The library is designed to expose a CLI in future releases. Track progress in
-the [project roadmap](#project-roadmap) and follow upcoming releases for CLI
-availability.
-
-## Project roadmap
-
-Development milestones and future work are tracked in
-[`docs/plan.md`](docs/plan.md). Highlights include:
-
-- v1.0 pipeline implementation with reusable steps and result reporting.
-- Future CLI tooling for batch execution from the terminal.
-- Potential AI-driven pipeline steps for classification or anomaly detection.
-
 ## Support
 
-Questions and bug reports are welcome via the GitHub issue tracker once the
-repository is public. Until then, feel free to open a discussion thread or
-contact the maintainers directly.
+Questions and bug reports are welcome via the GitHub issue tracker.
 
 ## Contributing
 
