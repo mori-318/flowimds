@@ -11,6 +11,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 - _Nothing yet_
 
+## [0.1.1] - 2025-11-05
+
+<!-- markdownlint-disable-next-line MD024 -->
+### Fixed
+
+- Ensure the PyPI distribution bundles pipeline step modules to avoid `ModuleNotFoundError` when importing `flowimds.steps`.
+
 ## [0.1.0] - 2025-11-05
 
 <!-- markdownlint-disable-next-line MD024 -->

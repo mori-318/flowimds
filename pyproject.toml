@@ -1,6 +1,6 @@
 [project]
 name = "flowimds"
-version = "0.1.0"
+version = "0.1.1"
 authors = [
     { name = "mori-318", email = "105962185+mori-318@users.noreply.github.com" }
 ]
@@ -25,7 +25,7 @@ dependencies = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["flowimds"]
+include = ["flowimds", "flowimds.*"]
 
 [project.optional-dependencies]
 dev = [
