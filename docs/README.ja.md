@@ -61,8 +61,8 @@ import flowimds as fi
 
 pipeline = fi.Pipeline(
     steps=[fi.ResizeStep((128, 128)), fi.GrayscaleStep()],
-    input_path=Path("examples/input"),
-    output_path=Path("examples/output"),
+    input_path=Path("samples/input"),
+    output_path=Path("samples/output"),
     recursive=True,
     preserve_structure=True,
 )
