@@ -96,6 +96,49 @@ class Pipeline:
             settings=self._build_settings(),
         )
 
+    def run_on_paths(self, paths: Iterable[Path | str]) -> PipelineResult:
+        """Process an explicit iterable of image paths.
+
+        Args:
+            paths: Iterable of filesystem paths pointing to images.
+
+        Returns:
+            ``PipelineResult`` describing the execution outcome.
+        """
+
+        image_paths = [Path(path) for path in paths]
+        start = perf_counter()
+        processed, failed, mappings = self._process_images(image_paths)
+        duration = perf_counter() - start
+
+        return PipelineResult(
+            processed_count=processed,
+            failed_count=len(failed),
+            failed_files=[str(path) for path in failed],
+            output_mappings=mappings,
+            duration_seconds=duration,
+            settings=self._build_settings(),
+        )
+
+    def run_on_arrays(self, images: Iterable[np.ndarray]) -> list[np.ndarray]:
+        """Apply pipeline steps to a collection of in-memory images.
+
+        Args:
+            images: Iterable of numpy arrays representing images.
+
+        Returns:
+            List of transformed images, in the same order as ``images``.
+
+        Raises:
+            TypeError: If any element is not a numpy array.
+        """
+
+        results: list[np.ndarray] = []
+        for index, image in enumerate(images):
+            normalised = self._ensure_array(image, index)
+            results.append(self._apply_steps(normalised))
+        return results
+
     def _process_images(
         self,
         image_paths: Iterable[Path],
@@ -164,6 +207,18 @@ class Pipeline:
 
         destination_root = self._output_path
         if self._preserve_structure:
-            relative = source.relative_to(self._input_path)
+            try:
+                relative = source.relative_to(self._input_path)
+            except ValueError:
+                relative = Path(source.name)
             return destination_root / relative
         return destination_root / source.name
+
+    @staticmethod
+    def _ensure_array(image: np.ndarray, index: int) -> np.ndarray:
+        """Validate that ``image`` is a numpy array and return it."""
+
+        if not isinstance(image, np.ndarray):
+            msg = f"images[{index}] must be a numpy.ndarray"
+            raise TypeError(msg)
+        return image
