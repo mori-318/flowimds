@@ -1,6 +1,23 @@
 [project]
 name = "flowimds"
 version = "0.1.0"
+authors = [
+    { name = "mori-318", email = "105962185+mori-318@users.noreply.github.com" }
+]
+maintainers = [
+    { name = "mori-318", email = "105962185+mori-318@users.noreply.github.com" }
+]
+license = { file = "LICENSE" }
+repository = "https://github.com/mori-318/flowimds"
+documents = ["https://github.com/mori-318/flowimds#readme"]
+keywords = ["image-processing", "pipeline", "batch"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Multimedia :: Graphics :: Graphics Conversion",
+]
 description = "Batch image directory processing pipelines with reusable steps"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -9,12 +26,20 @@ dependencies = [
     "opencv-python>=4.12.0.88",
 ]
 
+[tool.setuptools.packages.find]
+include = ["flowimds"]
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8.4.2",
     "ruff>=0.14.3",
     "black>=24.10.0",
 ]
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [tool.ruff]
 exclude = [
     ".bzr",
