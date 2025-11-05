@@ -201,7 +201,8 @@ def test_pipeline_run_on_paths_processes_explicit_list(
     assert result.failed_count == 0
     assert not result.failed_files
     assert all(
-        mapping.output_path.exists() for mapping in result.output_mappings
+        mapping.output_path.exists()
+        for mapping in result.output_mappings
     )
     for mapping in result.output_mappings:
         image = cv2.imread(str(mapping.output_path))

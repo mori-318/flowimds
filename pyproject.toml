@@ -14,7 +14,6 @@ dev = [
     "pytest>=8.4.2",
     "ruff>=0.14.3",
     "black>=24.10.0",
-    "flake8>=7.1.1",
 ]
 [tool.ruff]
 exclude = [
@@ -52,14 +51,3 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "W"]
 
-[tool.flake8]
-max-line-length = 88
-exclude = [
-    ".git",
-    "__pycache__",
-    ".venv",
-    "build",
-    "dist",
-    "node_modules",
-    "site-packages",
-]
