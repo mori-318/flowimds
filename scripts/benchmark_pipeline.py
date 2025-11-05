@@ -78,11 +78,15 @@ class ComparisonResult:
         )
         parallel_logged_speedup = self.speedup_parallel_logged()
         parallel_logged_speedup_str = (
-            f"{parallel_logged_speedup:.2f}×" if math.isfinite(parallel_logged_speedup) else "N/A"
+            f"{parallel_logged_speedup:.2f}×"
+            if math.isfinite(parallel_logged_speedup)
+            else "N/A"
         )
         parallel_quiet_speedup = self.speedup_parallel_quiet()
         parallel_quiet_speedup_str = (
-            f"{parallel_quiet_speedup:.2f}×" if math.isfinite(parallel_quiet_speedup) else "N/A"
+            f"{parallel_quiet_speedup:.2f}×"
+            if math.isfinite(parallel_quiet_speedup)
+            else "N/A"
         )
         return [
             (
@@ -96,12 +100,14 @@ class ComparisonResult:
             ),
             (
                 f"| {self.label} | New parallel (log) | "
-                f"{self.new_parallel_logged_seconds:.2f} | {parallel_logged_speedup_str} | "
+                f"{self.new_parallel_logged_seconds:.2f} | "
+                f"{parallel_logged_speedup_str} | "
                 f"{self.notes} |"
             ),
             (
                 f"| {self.label} | New parallel (quiet) | "
-                f"{self.new_parallel_quiet_seconds:.2f} | {parallel_quiet_speedup_str} | "
+                f"{self.new_parallel_quiet_seconds:.2f} | "
+                f"{parallel_quiet_speedup_str} | "
                 f"{self.notes} |"
             ),
         ]

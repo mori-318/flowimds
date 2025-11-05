@@ -303,14 +303,8 @@ class Pipeline:
         threshold = max(1, total // 10)
 
         def _log_progress(completed: int) -> None:
-            if (
-                completed == 1
-                or completed == total
-                or completed % threshold == 0
-            ):
-                print(
-                    f"[flowimds] Progress: {completed}/{total} images processed"
-                )
+            if completed == 1 or completed == total or completed % threshold == 0:
+                print(f"[flowimds] Progress: {completed}/{total} images processed")
 
         return _log_progress
 

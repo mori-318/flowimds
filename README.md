@@ -97,13 +97,11 @@ current pipeline. The command below relies on `uv` so that dependencies and the
 virtual environment are handled consistently:
 
 ```bash
-uv run python scripts/benchmark_pipeline.py --count 1000 --workers 4
+uv run python scripts/benchmark_pipeline.py --count 5000 --workers 8
 ```
 
 - `--count` controls how many synthetic images are generated (default `5000`).
 - `--workers` sets the maximum parallel worker count (`0` auto-detects CPUs).
-- `--output-dir` defines where temporary artefacts are written (default
-  `benchmarks`). The directory is removed automatically when the script exits.
 
 For reproducible comparisons across runs, specify `--seed` (default `42`). The
 script prints timing summaries for each pipeline variant and cleans up the
@@ -135,16 +133,20 @@ Before opening a pull request:
 # Install dependencies
 uv sync --all-extras --dev
 
-# Lint and format
+# Lint and format (apply fixes when needed)
+uv run black .
+uv run ruff format .
+
+# Lint and format (verify)
 uv run black --check .
 uv run ruff check .
 uv run ruff format --check .
 
-# Run tests
-uv run pytest
-
 # Regenerate deterministic fixtures when needed
 uv run python scripts/generate_test_data.py
+
+# Run tests
+uv run pytest
 ```
 
 ## License
