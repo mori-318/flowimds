@@ -81,12 +81,15 @@ print(f"Processed {result.processed_count} images")
 
 ## Usage guide
 
-- **Explicit paths**: `pipeline.run_on_paths([...])` processes an explicit list
-  of images and persists the outputs.
-- **In-memory arrays**: `pipeline.run_on_arrays([...])` applies the pipeline to
-  NumPy arrays without touching the filesystem.
-- **Sample fixtures**: See `samples/README.md` for runnable examples that
-  generate inputs and inspect the produced outputs.
+- Compose pipelines from the built-in steps (resize, grayscale, rotate, flip,
+  binarise, denoise) or any custom object exposing `apply(image)`.
+- Run against directories, explicit file lists, or pure in-memory NumPy arrays
+  depending on the data you have available.
+- Inspect the returned `PipelineResult` to review processed counts, failed
+  files, and where outputs were written.
+
+See [docs/usage.md](docs/usage.md) for a complete walkthrough with code
+snippets and configuration tips.
 
 ## Support
 

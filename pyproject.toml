@@ -8,8 +8,6 @@ maintainers = [
     { name = "mori-318", email = "105962185+mori-318@users.noreply.github.com" }
 ]
 license = { file = "LICENSE" }
-repository = "https://github.com/mori-318/flowimds"
-documents = ["https://github.com/mori-318/flowimds#readme"]
 keywords = ["image-processing", "pipeline", "batch"]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -35,6 +33,11 @@ dev = [
     "ruff>=0.14.3",
     "black>=24.10.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/mori-318/flowimds"
+Repository = "https://github.com/mori-318/flowimds"
+Documentation = "https://github.com/mori-318/flowimds#readme"
 
 [build-system]
 requires = ["setuptools>=69", "wheel"]

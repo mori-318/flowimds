@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable
@@ -206,6 +207,42 @@ def test_pipeline_run_on_paths_processes_explicit_list(
         assert image is not None
         height, width = image.shape[:2]
         assert (width, height) == target_size
+
+
+def test_run_raises_when_input_path_missing(tmp_path: Path) -> None:
+    """`Pipeline.run` must require an input path."""
+
+    pipeline = Pipeline(steps=[], output_path=tmp_path)
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape("input_path must be provided to use run()."),
+    ):
+        pipeline.run()
+
+
+def test_run_raises_when_output_path_missing(simple_input_dir: Path) -> None:
+    """`Pipeline.run` must require an output path."""
+
+    pipeline = Pipeline(steps=[], input_path=simple_input_dir)
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape("output_path must be provided to use run()."),
+    ):
+        pipeline.run()
+
+
+def test_run_on_paths_raises_when_output_path_missing() -> None:
+    """`Pipeline.run_on_paths` must require an output path."""
+
+    pipeline = Pipeline(steps=[])
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape("output_path must be provided to use run_on_paths()."),
+    ):
+        pipeline.run_on_paths([])
 
 
 def test_pipeline_run_on_arrays_returns_transformed_images(

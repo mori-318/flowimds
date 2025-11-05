@@ -25,8 +25,8 @@ class OutputMapping:
 class PipelineSettings(TypedDict):
     """Typed mapping representing pipeline configuration for a run."""
 
-    input_path: str
-    output_path: str
+    input_path: str | None
+    output_path: str | None
     recursive: bool
     preserve_structure: bool
 
@@ -58,8 +58,8 @@ class Pipeline:
     def __init__(
         self,
         steps: Iterable[PipelineStep],
-        input_path: Path | str,
-        output_path: Path | str,
+        input_path: Path | str | None = None,
+        output_path: Path | str | None = None,
         recursive: bool = False,
         preserve_structure: bool = False,
     ) -> None:
@@ -67,20 +67,29 @@ class Pipeline:
 
         Args:
             steps: Iterable of processing steps that expose ``apply``.
-            input_path: Directory that stores the source images.
-            output_path: Directory where processed images are written.
+            input_path: Directory that stores the source images. Required when
+                using :meth:`run`.
+            output_path: Directory where processed images are written. Required
+                when using :meth:`run` or :meth:`run_on_paths`.
             recursive: Whether to traverse the input directory recursively.
             preserve_structure: Whether to mirror the input directory structure.
         """
 
         self._steps = list(steps)
-        self._input_path = Path(input_path)
-        self._output_path = Path(output_path)
+        self._input_path = Path(input_path) if input_path is not None else None
+        self._output_path = Path(output_path) if output_path is not None else None
         self._recursive = recursive
         self._preserve_structure = preserve_structure
 
     def run(self) -> PipelineResult:
         """Execute the pipeline and return the aggregated result."""
+
+        if self._input_path is None:
+            msg = "input_path must be provided to use run()."
+            raise ValueError(msg)
+        if self._output_path is None:
+            msg = "output_path must be provided to use run()."
+            raise ValueError(msg)
 
         image_paths = self._collect_image_paths()
         start = perf_counter()
@@ -105,6 +114,10 @@ class Pipeline:
         Returns:
             ``PipelineResult`` describing the execution outcome.
         """
+
+        if self._output_path is None:
+            msg = "output_path must be provided to use run_on_paths()."
+            raise ValueError(msg)
 
         image_paths = [Path(path) for path in paths]
         start = perf_counter()
@@ -172,8 +185,10 @@ class Pipeline:
         """Return a typed dictionary that summarises the run configuration."""
 
         return PipelineSettings(
-            input_path=str(self._input_path),
-            output_path=str(self._output_path),
+            input_path=str(self._input_path) if self._input_path is not None else None,
+            output_path=(
+                str(self._output_path) if self._output_path is not None else None
+            ),
             recursive=self._recursive,
             preserve_structure=self._preserve_structure,
         )
@@ -188,6 +203,10 @@ class Pipeline:
 
     def _collect_image_paths(self) -> list[Path]:
         """Collect eligible image paths from the input directory."""
+
+        if self._input_path is None:
+            msg = "input_path must be provided to collect image paths."
+            raise ValueError(msg)
 
         return collect_image_paths(
             self._input_path,
@@ -206,7 +225,11 @@ class Pipeline:
         """
 
         destination_root = self._output_path
-        if self._preserve_structure:
+        if destination_root is None:
+            msg = "output_path must be provided to persist results."
+            raise ValueError(msg)
+
+        if self._preserve_structure and self._input_path is not None:
             try:
                 relative = source.relative_to(self._input_path)
             except ValueError:
