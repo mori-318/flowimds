@@ -34,7 +34,13 @@
 - Python 3.12 以上
 - 依存管理に `uv` もしくは `pip`
 
-### PyPI（公開後）からのインストール
+### コマンド
+
+```bash
+uv sync
+```
+
+もしくは
 
 ```bash
 pip install flowimds
@@ -43,9 +49,9 @@ pip install flowimds
 ### ソースコードから利用
 
 ```bash
-git clone https://github.com/your-org/flowimds.git
+git clone https://github.com/mori-318/flowimds.git
 cd flowimds
-uv sync --all-extras --dev
+uv sync
 ```
 
 ## クイックスタート

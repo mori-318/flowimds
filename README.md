@@ -39,18 +39,24 @@ lists of file paths, or in-memory NumPy arrays.
 - Python 3.12+
 - `uv` or `pip` for dependency management
 
-### From PyPI (after publishing)
+### Commands
 
 ```bash
 pip install flowimds
 ```
 
+or
+
+```bash
+uv add flowimds
+```
+
 ### From source
 
 ```bash
-git clone https://github.com/your-org/flowimds.git
+git clone https://github.com/mori-318/flowimds.git
 cd flowimds
-uv sync --all-extras --dev
+uv sync
 ```
 
 ## Quick start
