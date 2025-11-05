@@ -135,7 +135,7 @@ uv sync --all-extras --dev
 uv run black --check .
 uv run ruff check .
 uv run ruff format --check .
-uv run flake8 .
+uv run flake8 flowimds tests
 
 # Run tests
 uv run pytest
