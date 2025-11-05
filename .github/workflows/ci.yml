@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main", "develop"]
+
+jobs:
+  build-and-test:
+    name: Lint and Test
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: Sync dependencies
+        run: |
+          if [ -f pyproject.toml ]; then
+            uv sync --all-extras --dev
+          else
+            echo "pyproject.toml not found; skipping uv sync"
+          fi
+
+      - name: Run linters
+        run: |
+          uv run black --check .
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Run tests
+        run: uv run pytest
