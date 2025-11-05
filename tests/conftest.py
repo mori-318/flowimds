@@ -1,17 +1,26 @@
 """Pytest fixtures that provide convenient access to test data paths."""
 
+import importlib
 import shutil
 import sys
 from pathlib import Path
-from typing import Generator
+from typing import Callable, Generator
 
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
-from scripts.generate_test_data import main as generate_test_data
+
+def _load_generate_test_data() -> Callable[[], None]:
+    """Return the generator script entry point with repository path configured."""
+
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    module = importlib.import_module("scripts.generate_test_data")
+    return module.main
+
+
+generate_test_data = _load_generate_test_data()
 
 
 def _data_root() -> Path:

@@ -54,8 +54,6 @@ def test_resize_preserves_dtype_for_grayscale_images() -> None:
 def test_resize_with_invalid_size(size: tuple[int, ...]) -> None:
     """Ensure ``ResizeStep`` rejects invalid size definitions."""
 
-    image = np.zeros((100, 100, 3), dtype=np.uint8)
-
     with pytest.raises(ValueError):
         ResizeStep(size)
 
