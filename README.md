@@ -2,10 +2,6 @@
 
 [日本語 README](docs/README.ja.md)
 
-> ℹ️ バッジの URL は実際のリポジトリ公開後に更新してください。
-
-[![CI](https://github.com/your-org/flowimds/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/flowimds/actions/workflows/ci.yml)
-
 `flowimds` is an open-source Python library for batch image directory
 processing. It lets you describe pipelines composed of reusable steps (resize,
 grayscale, binarise, denoise, rotate, flip, …) and execute them against folders,
@@ -63,14 +59,12 @@ All primary classes are re-exported from the package root, so you can work with
 the pipeline and processing steps through a concise namespace:
 
 ```python
-from pathlib import Path
-
 import flowimds as fi
 
 pipeline = fi.Pipeline(
     steps=[fi.ResizeStep((128, 128)), fi.GrayscaleStep()],
-    input_path=Path("samples/input"),
-    output_path=Path("samples/output"),
+    input_path="samples/input",
+    output_path="samples/output",
     recursive=True,
     preserve_structure=True,
 )

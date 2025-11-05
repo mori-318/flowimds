@@ -2,10 +2,6 @@
 
 [English README](../README.md)
 
-> ℹ️ バッジのURLは公開リポジトリに合わせて更新してください。
-
-[![CI](https://github.com/your-org/flowimds/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/flowimds/actions/workflows/ci.yml)
-
 `flowimds` は、画像ディレクトリを一括処理するためのオープンソースPythonライブラリです。リサイズ、グレースケール化、二値化、ノイズ除去、回転、反転などのステップを組み合わせてパイプラインを定義し、フォルダ単位・ファイルリスト指定・NumPy配列など多様な入力に対して実行できます。
 
 ## 目次
@@ -55,14 +51,12 @@ uv sync --all-extras --dev
 ## クイックスタート
 
 ```python
-from pathlib import Path
-
 import flowimds as fi
 
 pipeline = fi.Pipeline(
     steps=[fi.ResizeStep((128, 128)), fi.GrayscaleStep()],
-    input_path=Path("samples/input"),
-    output_path=Path("samples/output"),
+    input_path="samples/input",
+    output_path="samples/output",
     recursive=True,
     preserve_structure=True,
 )
