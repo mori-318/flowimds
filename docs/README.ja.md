@@ -1,59 +1,32 @@
-# flowimds
+<div align="center">
+  <img src="./assets/flowimds_rogo.png" alt="flowimds ロゴ" width="100%">
+  <h1>flowimds</h1>
+</div>
+
+<p align="center">
+  <a href="https://pypi.org/project/flowimds/"><img src="https://img.shields.io/pypi/v/flowimds.svg" alt="PyPI"></a>
+  <a href="https://github.com/mori-318/flowimds/actions/workflows/publish.yml"><img src="https://img.shields.io/github/actions/workflow/status/mori-318/flowimds/publish.yml?branch=main&label=publish" alt="Publish ワークフローの状態"></a>
+  <a href="../LICENSE"><img src="https://img.shields.io/github/license/mori-318/flowimds.svg" alt="ライセンス"></a>
+  <a href="https://pypi.org/project/flowimds/"><img src="https://img.shields.io/pypi/pyversions/flowimds.svg" alt="対応 Python バージョン"></a>
+</p>
+
+> 決定的で再利用可能な画像処理パイプラインを構築し、大規模な画像コレクションを効率的に扱いましょう。
 
 [English README](../README.md)
 
-`flowimds` は、画像ディレクトリを一括処理するためのオープンソースPythonライブラリです。リサイズ、グレースケール化、二値化、ノイズ除去、回転、反転などのステップを組み合わせてパイプラインを定義し、フォルダ単位・ファイルリスト指定・NumPy配列など多様な入力に対して実行できます。
+## ✨ 特長
 
-## 目次
+- ♻️ **大規模バッチ処理** — ディレクトリ全体を対象に、必要に応じて再帰的に走査できます。
+- 🗂️ **構造を意識した出力** — 入力フォルダ構成を出力側で再現することができます。
+- 🧩 **豊富なステップ群** — リサイズ、グレースケール化、回転、反転、二値化、ノイズ除去、独自ステップを柔軟に組み合わせられます。
+- 🔄 **柔軟な実行モード** — フォルダ、明示的なファイルリスト、NumPy 配列を対象にパイプラインを実行できます。
+- 🧪 **決定的フィクスチャ** — 再現性のあるテストデータを都度生成できます。
+- 🤖 **拡張予定のステップ** — AI 支援を含むさらなる変換を計画しています。
+- 📁 **フラット出力にも対応** — 構造の保持を無効にし、一つのディレクトリへまとめて書き出すことも可能です。
 
-1. [特徴](#特徴)
-2. [インストール](#インストール)
-3. [クイックスタート](#クイックスタート)
-4. [利用ガイド](#利用ガイド)
-5. [ベンチマーク](#ベンチマーク)
-6. [サポート](#サポート)
-7. [コントリビューション](#コントリビューション)
-8. [開発環境の整え方](#開発環境の整え方)
-9. [ライセンス](#ライセンス)
-10. [プロジェクト状況](#プロジェクト状況)
-11. [謝辞](#謝辞)
+## 🚀 クイックスタート
 
-## 特徴
-
-- ディレクトリ全体のバッチ処理と再帰走査に対応。
-- 入力フォルダ構成を出力側で再現するオプションを提供。
-- リサイズ・グレースケール・回転・反転・二値化・ノイズ除去など豊富な標準ステップ。
-- ディレクトリ走査、明示的なファイルリスト、NumPy配列のいずれでも実行可能。
-- テスト用の画像データを再生成できる決定的なスクリプトを同梱。
-
-## インストール
-
-### 必要要件
-
-- Python 3.12 以上
-- 依存管理に `uv` もしくは `pip`
-
-### コマンド
-
-```bash
-pip install flowimds
-```
-
-もしくは
-
-```bash
-uv add flowimds
-```
-
-### ソースコードから利用
-
-```bash
-git clone https://github.com/mori-318/flowimds.git
-cd flowimds
-uv sync
-```
-
-## クイックスタート
+すべての主要クラスはパッケージルートから再エクスポートされているため、簡潔な名前空間でパイプラインを記述できます。
 
 ```python
 import flowimds as fi
@@ -70,17 +43,43 @@ result = pipeline.run()
 print(f"Processed {result.processed_count} images")
 ```
 
-## 利用ガイド
+> 💡 ワークフローをカスタマイズしたい場合は、`apply(image)` を実装する任意のオブジェクトを渡して領域特化ステップを追加できます。
 
-- 標準ステップや独自ステップを組み合わせて、用途に合わせたパイプラインを構築できます。
-- ディレクトリ走査、ファイルリスト指定、純粋な NumPy 配列処理など、手元のデータに合わせて実行方法を選べます。
-- 実行結果の `PipelineResult` から処理件数、失敗ファイル、出力パスをすばやく確認できます。
+## 📦 インストール
 
-さらに詳しい説明やコード例は [usage.ja.md](usage.ja.md) を参照してください。
+- Python 3.12 以上
+- 依存管理ツールとして `uv` または `pip`
+- 推奨: `uv`
 
-## ベンチマーク
+### uv
 
-レガシー実装と現行パイプラインの速度差を比較するには、付属のベンチマークスクリプトを利用します。依存関係と仮想環境の管理をそろえるため、`uv run` コマンドで実行することを推奨しています。
+```bash
+uv add flowimds
+```
+
+### pip
+
+```bash
+pip install flowimds
+```
+
+### ソースコードから利用
+
+```bash
+git clone https://github.com/mori-318/flowimds.git
+cd flowimds
+uv sync
+```
+
+## 📚 ドキュメント
+
+- [Usage guide](./usage.md) — 設定のコツや詳細なサンプル。
+- [使用ガイド](./usage.ja.md) — 日本語版の詳細ガイド。
+- [日本語 README](./README.ja.md) — 本ページの日本語概要。
+
+## 🔬 ベンチマーク
+
+レガシー実装と現行パイプラインを比較するには、同梱のヘルパースクリプトを利用してください。依存関係と仮想環境を揃えるため、`uv` 経由での実行を推奨します。
 
 ```bash
 uv run python scripts/benchmark_pipeline.py --count 5000 --workers 8
@@ -89,33 +88,33 @@ uv run python scripts/benchmark_pipeline.py --count 5000 --workers 8
 - `--count`: 生成する疑似画像の枚数（既定値 `5000`）。
 - `--workers`: 並列実行に利用する最大ワーカー数（`0` で CPU コア数に基づき自動判定）。
 
-再現性を確保したい場合は `--seed`（既定値 `42`）を指定してください。スクリプトは各パイプライン構成の処理時間を表示し、終了後に生成した一時ファイルをクリーンアップします。
+再現性のある比較を行う場合は `--seed`（既定値 `42`）を指定してください。スクリプトは各パイプラインの処理時間を表示し、終了後に一時出力をクリーンアップします。
 
-## サポート
+## 🆘 サポート
 
-問題報告や質問は GitHub の Issue Tracker で受け付けています。
+質問やバグ報告は GitHub の Issue Tracker で受け付けています。
 
-## コントリビューション
+## 🤝 コントリビューション
 
-安定性を維持するため、GitFlow ベースの運用を行っています。
+ライブラリを安定させつつ並行開発を可能にするため、GitFlow ベースのワークフローを採用しています。
 
-- **main**: 常にリリース可能な安定版 (`vX.Y.Z` 形式でタグ付け)。
-- **develop**: 次期リリース候補の統合ブランチ。
-- **feature/**・**release/**・**hotfix/**: 機能追加や修正用の短期ブランチ。
+- **main** — リリース可能なコード（`vX.Y.Z` でタグ付け）。
+- **develop** — 次期リリース候補のステージング。
+- **feature/**・**release/**・**hotfix/** ブランチ — 集中した開発用の派生ブランチ。
 
-Pull Request を送る前に次の手順を実施してください。
+Pull Request を送る前に以下を確認してください。
 
 1. `develop` からトピックブランチを作成する。
-2. Lint とテストがすべて成功することを確認する（[開発環境の整え方](#開発環境の整え方)を参照）。
+2. Lint およびテストが通ることを確認する（[🛠️ 開発](#️-開発)を参照）。
 3. コミットメッセージは [Conventional Commits](https://www.conventionalcommits.org/ja/v1.0.0/) に従う。
 
-## 開発環境の整え方
+## 🛠️ 開発
 
 ```bash
-# 依存関係の同期
+# 依存関係のインストール
 uv sync --all-extras --dev
 
-# Lint / Format（必要に応じて自動整形）
+# Lint / Format（修正あり）
 uv run black .
 uv run ruff format .
 
@@ -124,23 +123,17 @@ uv run black --check .
 uv run ruff check .
 uv run ruff format --check .
 
-# テスト用データの再生成
+# 決定的フィクスチャの再生成
 uv run python scripts/generate_test_data.py
 
 # テスト実行
 uv run pytest
 ```
 
-## ライセンス
+## 📄 ライセンス
 
-[MIT License](../LICENSE) に基づいて公開しています。
+本プロジェクトは [MIT License](../LICENSE) の下で公開しています。
 
-## プロジェクト状況
+## 📌 プロジェクト状況
 
-初の安定版リリースに向けて開発が進行中です。タグ付きリリースにご期待ください。
-
-## 謝辞
-
-- [NumPy](https://numpy.org/) による配列処理基盤
-- [OpenCV](https://opencv.org/) による画像入出力
-- [uv](https://github.com/astral-sh/uv) と [Ruff](https://docs.astral.sh/ruff/) による開発ワークフロー支援
+安定版は PyPI（v0.2.1）で公開済みで、今後のアップデートに向けて継続的に改善を進めています。新しいタグとチェンジログをお見逃しなく。

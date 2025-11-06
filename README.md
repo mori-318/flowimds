@@ -1,67 +1,33 @@
-# flowimds
+<div align="center">
+  <img src="docs/assets/flowimds_rogo.png" alt="flowimds logo" width="100%">
+  <h1>flowimds</h1>
+</div>
+
+<p align="center">
+  <a href="https://pypi.org/project/flowimds/"><img src="https://img.shields.io/pypi/v/flowimds.svg" alt="PyPI"></a>
+  <a href="https://github.com/mori-318/flowimds/actions/workflows/publish.yml"><img src="https://img.shields.io/github/actions/workflow/status/mori-318/flowimds/publish.yml?branch=main&label=publish" alt="Publish workflow status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/mori-318/flowimds.svg" alt="License"></a>
+  <a href="https://pypi.org/project/flowimds/"><img src="https://img.shields.io/pypi/pyversions/flowimds.svg" alt="Python Versions">
+  </a>
+</p>
+
+> Build deterministic, composable image-processing pipelines for massive image collections.
 
 [日本語 README](docs/README.ja.md)
 
-`flowimds` is an open-source Python library for batch image directory
-processing. It lets you describe pipelines composed of reusable steps (resize,
-grayscale, binarise, denoise, rotate, flip, …) and execute them against folders,
-lists of file paths, or in-memory NumPy arrays.
+## ✨ Highlights
 
-## Table of contents
+- ♻️ **Batch processing at scale** — Traverse entire directories with optional recursive scanning.
+- 🗂️ **Structure-aware outputs** — Mirror the input folder layout when preserving directory structures.
+- 🧩 **Rich step library** — Combine resizing, grayscale conversion, rotations, flips, binarisation, denoising, and custom steps.
+- 🔄 **Flexible execution modes** — Operate on folders, explicit file lists, or in-memory NumPy arrays.
+- 🧪 **Deterministic fixtures** — Recreate test data whenever needed for reproducible pipelines.
+- 🤖 **Expanding step roadmap** — More transformations, including AI-assisted steps, are planned.
+- 📁 **Flattened outputs available** — Optionally disable structure preservation to write everything into a single directory.
 
-1. [Features](#features)
-2. [Installation](#installation)
-3. [Quick start](#quick-start)
-4. [Usage guide](#usage-guide)
-5. [Benchmarking](#benchmarking)
-6. [Support](#support)
-7. [Contributing](#contributing)
-8. [Development setup](#development-setup)
-9. [License](#license)
-10. [Project status](#project-status)
-11. [Acknowledgements](#acknowledgements)
+## 🚀 Quick start
 
-## Features
-
-- Batch processing for entire directories with optional recursive traversal.
-- Configurable output structure that can mirror the input hierarchy.
-- Rich standard step library: resize, grayscale, rotate, flip, binarise, and
-  denoise.
-- Multiple execution modes: directory scanning, explicit path lists, or pure
-  in-memory processing.
-- Deterministic test data generators for reproducible fixtures.
-
-## Installation
-
-### Requirements
-
-- Python 3.12+
-- `uv` or `pip` for dependency management
-
-### Commands
-
-```bash
-pip install flowimds
-```
-
-or
-
-```bash
-uv add flowimds
-```
-
-### From source
-
-```bash
-git clone https://github.com/mori-318/flowimds.git
-cd flowimds
-uv sync
-```
-
-## Quick start
-
-All primary classes are re-exported from the package root, so you can work with
-the pipeline and processing steps through a concise namespace:
+All primary classes are re-exported from the package root, so pipelines can be described through a concise namespace:
 
 ```python
 import flowimds as fi
@@ -78,23 +44,43 @@ result = pipeline.run()
 print(f"Processed {result.processed_count} images")
 ```
 
-## Usage guide
+> 💡 Want to customise the workflow? Supply any object implementing `apply(image)` to extend the pipeline with domain-specific steps.
 
-- Compose pipelines from the built-in steps (resize, grayscale, rotate, flip,
-  binarise, denoise) or any custom object exposing `apply(image)`.
-- Run against directories, explicit file lists, or pure in-memory NumPy arrays
-  depending on the data you have available.
-- Inspect the returned `PipelineResult` to review processed counts, failed
-  files, and where outputs were written.
+## 📦 Installation
 
-See [docs/usage.md](docs/usage.md) for a complete walkthrough with code
-snippets and configuration tips.
+- Python 3.12+
+- `uv` or `pip` for dependency management
+- `uv` is recommended
 
-## Benchmarking
+### uv
 
-Use the benchmark helper script to compare the legacy implementation with the
-current pipeline. The command below relies on `uv` so that dependencies and the
-virtual environment are handled consistently:
+```bash
+uv add flowimds
+```
+
+### pip
+
+```bash
+pip install flowimds
+```
+
+### From source
+
+```bash
+git clone https://github.com/mori-318/flowimds.git
+cd flowimds
+uv sync
+```
+
+## 📚 Documentation
+
+- [Usage guide](docs/usage.md) — configuration tips and extended examples.
+- [使用ガイド](docs/usage.ja.md) — 日本語版。
+- [日本語 README](docs/README.ja.md) — 全体概要の日本語まとめ。
+
+## 🔬 Benchmarks
+
+Use the helper script to compare legacy and current pipeline implementations. The command relies on `uv` so that dependencies and the virtual environment stay consistent:
 
 ```bash
 uv run python scripts/benchmark_pipeline.py --count 5000 --workers 8
@@ -103,31 +89,27 @@ uv run python scripts/benchmark_pipeline.py --count 5000 --workers 8
 - `--count` controls how many synthetic images are generated (default `5000`).
 - `--workers` sets the maximum parallel worker count (`0` auto-detects CPUs).
 
-For reproducible comparisons across runs, specify `--seed` (default `42`). The
-script prints timing summaries for each pipeline variant and cleans up the
-temporary outputs afterward.
+For reproducible comparisons, specify `--seed` (default `42`). The script prints timing summaries for each pipeline variant and cleans up temporary outputs afterward.
 
-## Support
+## 🆘 Support
 
 Questions and bug reports are welcome via the GitHub issue tracker.
 
-## Contributing
+## 🤝 Contributing
 
-We follow a GitFlow-based workflow to keep the library stable while enabling
-parallel development:
+We follow a GitFlow-based workflow to keep the library stable while enabling parallel development:
 
-- **main**: release-ready code (tagged as `vX.Y.Z`).
-- **develop**: staging area for the next release.
-- **feature/**, **release/**, **hotfix/** branches support focused work.
+- **main** — release-ready code (tagged as `vX.Y.Z`).
+- **develop** — staging area for the next release.
+- **feature/**, **release/**, **hotfix/** branches — focused work streams.
 
 Before opening a pull request:
 
 1. Check out a topic branch from `develop`.
-2. Ensure lint and test commands pass (see [development setup](#development-setup)).
-3. Use [Conventional Commits](https://www.conventionalcommits.org/) for commit
-   messages.
+2. Ensure lint and test commands pass (see [🛠️ Development](#️-development)).
+3. Use [Conventional Commits](https://www.conventionalcommits.org/) for commit messages.
 
-## Development setup
+## 🛠️ Development
 
 ```bash
 # Install dependencies
@@ -149,18 +131,10 @@ uv run python scripts/generate_test_data.py
 uv run pytest
 ```
 
-## License
+## 📄 License
 
 This project is released under the [MIT License](LICENSE).
 
-## Project status
+## 📌 Project status
 
-The project is under active development, targeting the first public release.
-Watch the repository for tagged versions once the release workflow is in place.
-
-## Acknowledgements
-
-- Built with [NumPy](https://numpy.org/).
-- Image I/O powered by [OpenCV](https://opencv.org/).
-- Packaging and workflow tooling driven by [uv](https://github.com/astral-sh/uv)
-  and [Ruff](https://docs.astral.sh/ruff/).
+Stable releases are already published on PyPI (v0.2.1), and we continue to iterate toward upcoming updates. Watch the repository for new tags and changelog announcements.
