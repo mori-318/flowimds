@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.1] - 2025-11-06
+
+### Added
+
+- Enabled semantic highlighting support so editors surface pipeline symbols with richer colourisation.
+- Generate unique filenames (e.g., `_no2`) when preserving a flat output structure to avoid overwriting results.
+
 ## [0.2.0] - 2025-11-06
 
 <!-- markdownlint-disable-next-line MD024 -->
