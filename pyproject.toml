@@ -28,6 +28,9 @@ dependencies = [
 [tool.setuptools.packages.find]
 include = ["flowimds", "flowimds.*"]
 
+[tool.setuptools.package-data]
+"flowimds" = ["py.typed"]
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8.4.2",
