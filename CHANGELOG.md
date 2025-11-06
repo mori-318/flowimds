@@ -2,14 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [Unreleased]
+## [0.2.0] - 2025-11-06
 
 <!-- markdownlint-disable-next-line MD024 -->
-### Added
+### Changed
 
-- _Nothing yet_
+- Introduced parallel execution option for `Pipeline` (implementation in progress).
+  - By default we auto-detect the worker count (~70% of logical cores) but fall back to sequential execution when that heuristic yields 1 worker.
+- Introduced logging option for `Pipeline` (implementation in progress).
+  - Disabled by default.
+  - Combines `print` output with an optional `tqdm` progress bar when enabled.
+- Recorded benchmark results using `uv run python scripts/benchmark_pipeline.py` (auto-detected 6 worker threads on an 8-core machine; measured on a MacBook Air (13-inch, 2024) with Apple M3/16 GB RAM; both logging modes captured).
+
+| Step combination | Baseline duration (s) | Parallel duration (log on) (s) | Parallel duration (log off) (s) | Speed-up (log on) | Speed-up (log off) |
+| ---------------- | --------------------- | ----------------------------- | ------------------------------ | ----------------- | ------------------ |
+| Resize → Grayscale | 0.72 | 0.35 | 0.30 | 2.06× | 2.40× |
+| Resize → Denoise → Rotate | 3.91 | 1.32 | 0.97 | 2.96× | 4.03× |
+| Custom composite flow | 1.12 | 0.63 | 0.59 | 1.78× | 1.90× |
 
 ## [0.1.1] - 2025-11-05
 
