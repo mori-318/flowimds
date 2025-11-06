@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 import os
 from pathlib import Path
+from threading import Lock
 from time import perf_counter
 from typing import Iterable, TypedDict
 
@@ -94,6 +95,8 @@ class Pipeline:
         self._preserve_structure = preserve_structure
         self._worker_count = worker_count
         self._log_enabled = log
+        self._destination_lock = Lock()
+        self._flattened_destination_registry: set[str] = set()
 
     def run(self) -> PipelineResult:
         """Execute the pipeline and return the aggregated result."""
@@ -175,6 +178,8 @@ class Pipeline:
         materialised_paths = list(image_paths)
         if not materialised_paths:
             return 0, [], []
+
+        self._reset_destination_registry()
 
         worker_count = self._resolve_worker_count()
 
@@ -372,7 +377,34 @@ class Pipeline:
             except ValueError:
                 relative = Path(source.name)
             return destination_root / relative
-        return destination_root / source.name
+        unique_name = self._ensure_unique_flat_filename(source.name)
+        return destination_root / unique_name
+
+    def _reset_destination_registry(self) -> None:
+        """Reset the registry that tracks flattened destination filenames."""
+
+        with self._destination_lock:
+            self._flattened_destination_registry.clear()
+
+    def _ensure_unique_flat_filename(self, filename: str) -> str:
+        """Return a unique filename for flattened outputs.
+
+        Args:
+            filename: Original filename including extension.
+
+        Returns:
+            Unique filename that appends ``_no{n}`` on collisions.
+        """
+
+        stem, suffix = os.path.splitext(filename)
+        counter = 1
+        candidate = filename
+        with self._destination_lock:
+            while candidate in self._flattened_destination_registry:
+                counter += 1
+                candidate = f"{stem}_no{counter}{suffix}"
+            self._flattened_destination_registry.add(candidate)
+        return candidate
 
     @staticmethod
     def _ensure_array(image: np.ndarray, index: int) -> np.ndarray:

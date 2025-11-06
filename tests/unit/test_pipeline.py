@@ -13,6 +13,7 @@ import pytest
 
 from flowimds.pipeline import Pipeline, PipelineResult
 from flowimds.steps import ResizeStep
+from flowimds.utils.image_io import write_image
 
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg"}
 
@@ -142,6 +143,41 @@ def test_pipeline_records_failures_and_continues(
     assert sorted(Path(path) for path in result.failed_files) == input_images
     assert not any(output_path.iterdir())
     assert failing_step.call_count == len(input_images)
+
+
+def test_pipeline_flattened_outputs_are_unique(
+    tmp_path: Path,
+    output_dir: Path,
+) -> None:
+    """Pipeline should de-duplicate flattened output filenames."""
+
+    input_root = tmp_path / "inputs"
+    nested_a = input_root / "a"
+    nested_b = input_root / "b"
+    nested_a.mkdir(parents=True, exist_ok=True)
+    nested_b.mkdir(parents=True, exist_ok=True)
+
+    image = np.zeros((16, 16, 3), dtype=np.uint8)
+    write_image(str(nested_a / "duplicate.png"), image)
+    write_image(str(nested_b / "duplicate.png"), image)
+
+    recording_step = RecordingStep(transform=lambda img: img)
+    pipeline = Pipeline(
+        input_path=input_root,
+        output_path=output_dir,
+        steps=[recording_step],
+        recursive=True,
+        preserve_structure=False,
+    )
+
+    result = pipeline.run()
+
+    output_files = sorted(path.name for path in output_dir.glob("*.png"))
+
+    assert result.processed_count == 2
+    assert result.failed_count == 0
+    assert recording_step.call_count == 2
+    assert output_files == ["duplicate.png", "duplicate_no2.png"]
 
 
 def test_pipeline_honours_recursive_flag(
