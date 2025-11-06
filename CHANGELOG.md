@@ -7,6 +7,9 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Enabled semantic highlighting support so editors surface pipeline symbols with richer colourisation.
+
+### Fixed
+
 - Generate unique filenames (e.g., `_no2`) when preserving a flat output structure to avoid overwriting results.
 
 ## [0.2.0] - 2025-11-06
