@@ -6,3 +6,5 @@
 
 - [x] Parallelize the processing pipeline to improve overall processing speed.
 - [x] Add a logging flag that toggles progress bar output during execution.(Using callback functions)
+- [ ] Make semantic highlighting work.
+
