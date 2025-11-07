@@ -11,9 +11,10 @@
   </a>
 </p>
 
-> Build deterministic, composable image-processing pipelines for massive image collections.
+> Writing one-off scripts to process every image at once is tedious. flowimds solves that pain.
+> Compose pipelines to express simple, repeatable batch-processing flows.
 
-[日本語 README](docs/README.ja.md)
+[Japanese version](docs/README.ja.md)
 
 ## ✨ Highlights
 
@@ -30,10 +31,21 @@
 All primary classes are re-exported from the package root, so pipelines can be described through a concise namespace:
 
 ```python
+# Import the flowimds package
 import flowimds as fi
 
+# Define the pipeline
+# Args:
+#   steps: sequence of pipeline steps
+#   input_path: input directory path
+#   output_path: output directory path
+#   recursive: whether to traverse subdirectories (default: False)
+#   preserve_structure: whether to mirror the input tree (default: True)
 pipeline = fi.Pipeline(
-    steps=[fi.ResizeStep((128, 128)), fi.GrayscaleStep()],
+    steps=[
+        fi.ResizeStep((128, 128)),
+        fi.GrayscaleStep(),
+    ],
     input_path="samples/input",
     output_path="samples/output",
     recursive=True,
@@ -41,10 +53,14 @@ pipeline = fi.Pipeline(
 )
 
 result = pipeline.run()
+
+# Inspect the result
+# Fields:
+#   processed_count: number of successfully processed images
+#   failed_count: number of images that failed to process
+#   failed_files: paths of the images that failed
 print(f"Processed {result.processed_count} images")
 ```
-
-> 💡 Want to customise the workflow? Supply any object implementing `apply(image)` to extend the pipeline with domain-specific steps.
 
 ## 📦 Installation
 
@@ -76,20 +92,22 @@ uv sync
 
 - [Usage guide](docs/usage.md) — configuration tips and extended examples.
 - [使用ガイド](docs/usage.ja.md) — 日本語版。
-- [日本語 README](docs/README.ja.md) — 全体概要の日本語まとめ。
 
 ## 🔬 Benchmarks
 
-Use the helper script to compare legacy and current pipeline implementations. The command relies on `uv` so that dependencies and the virtual environment stay consistent:
+Compare the legacy (v0.2.1-) and current (v0.2.1+) pipeline implementations with the bundled helper script. Running via `uv` keeps dependencies and the virtual environment consistent:
 
 ```bash
+# count: number of synthetic images to generate (default `5000`)
+# workers: maximum worker threads (`0` auto-detects CPU cores)
 uv run python scripts/benchmark_pipeline.py --count 5000 --workers 8
 ```
 
-- `--count` controls how many synthetic images are generated (default `5000`).
-- `--workers` sets the maximum parallel worker count (`0` auto-detects CPUs).
+- `--count`: number of synthetic images to generate (default `5000`).
+- `--workers`: maximum worker threads (`0` auto-detects CPU cores).
+- `--seed`: specify the seed (default `42`) for reproducible comparisons.
 
-For reproducible comparisons, specify `--seed` (default `42`). The script prints timing summaries for each pipeline variant and cleans up temporary outputs afterward.
+The script prints processing times for each pipeline variant and cleans up temporary outputs afterward.
 
 ## 🆘 Support
 
@@ -101,13 +119,17 @@ We follow a GitFlow-based workflow to keep the library stable while enabling par
 
 - **main** — release-ready code (tagged as `vX.Y.Z`).
 - **develop** — staging area for the next release.
-- **feature/**, **release/**, **hotfix/** branches — focused work streams.
+- **feature/** — focused branches for scoped work.
+- **release/** — branches dedicated to preparing releases.
+- **hotfix/** — branches for urgent fixes.
+- **docs/** — branches for documentation updates.
 
 Before opening a pull request:
 
 1. Check out a topic branch from `develop`.
 2. Ensure lint and test commands pass (see [🛠️ Development](#️-development)).
 3. Use [Conventional Commits](https://www.conventionalcommits.org/) for commit messages.
+4. Target the `develop` branch when opening the pull request.
 
 ## 🛠️ Development
 

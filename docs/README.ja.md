@@ -10,9 +10,10 @@
   <a href="https://pypi.org/project/flowimds/"><img src="https://img.shields.io/pypi/pyversions/flowimds.svg" alt="対応 Python バージョン"></a>
 </p>
 
-> 決定的で再利用可能な画像処理パイプラインを構築し、大規模な画像コレクションを効率的に扱いましょう。
+> 毎回、全ての画像を一括で処理するコードを書くのは面倒くさいです。flowimdsは、そのような課題を解決します。
+> パイプラインを活用してシンプルな画像一括処理コードを書くことができます。
 
-[English README](../README.md)
+[英語版](../README.md)
 
 ## ✨ 特長
 
@@ -29,21 +30,37 @@
 すべての主要クラスはパッケージルートから再エクスポートされているため、簡潔な名前空間でパイプラインを記述できます。
 
 ```python
+# flowimds パッケージをインポート
 import flowimds as fi
 
+# パイプラインを定義
+# 引数:
+#   steps: パイプラインのステップ群
+#   input_path: 入力フォルダパス
+#   output_path: 出力フォルダパス
+#   recursive: 再帰的に走査するかどうか（デフォルト: False）
+#   preserve_structure: 構造を保持するかどうか（デフォルト: True）
 pipeline = fi.Pipeline(
-    steps=[fi.ResizeStep((128, 128)), fi.GrayscaleStep()],
+    steps=[
+        fi.ResizeStep((128, 128)),
+        fi.GrayscaleStep(),
+    ],
     input_path="samples/input",
     output_path="samples/output",
     recursive=True,
     preserve_structure=True,
 )
 
+# パイプラインを実行
 result = pipeline.run()
+
+# 結果を表示
+# 結果内容:
+#   processed_count: 処理に成功した画像数
+#   failed_count: 処理に失敗した画像数
+#   failed_files: 失敗した画像のパス一覧
 print(f"Processed {result.processed_count} images")
 ```
-
-> 💡 ワークフローをカスタマイズしたい場合は、`apply(image)` を実装する任意のオブジェクトを渡して領域特化ステップを追加できます。
 
 ## 📦 インストール
 
@@ -75,20 +92,22 @@ uv sync
 
 - [Usage guide](./usage.md) — 設定のコツや詳細なサンプル。
 - [使用ガイド](./usage.ja.md) — 日本語版の詳細ガイド。
-- [日本語 README](./README.ja.md) — 本ページの日本語概要。
 
 ## 🔬 ベンチマーク
 
-レガシー実装と現行パイプラインを比較するには、同梱のヘルパースクリプトを利用してください。依存関係と仮想環境を揃えるため、`uv` 経由での実行を推奨します。
+レガシー実装(v0.2.1-)と現行パイプライン(v0.2.1+)を比較するには、同梱のヘルパースクリプトを利用してください。依存関係と仮想環境を揃えるため、`uv` 経由での実行を推奨します。
 
 ```bash
+# count: 生成する疑似画像の枚数（既定値 `5000`）
+# workers: 並列実行に利用する最大ワーカー数（`0` で CPU コア数に基づき自動判定）
 uv run python scripts/benchmark_pipeline.py --count 5000 --workers 8
 ```
 
 - `--count`: 生成する疑似画像の枚数（既定値 `5000`）。
 - `--workers`: 並列実行に利用する最大ワーカー数（`0` で CPU コア数に基づき自動判定）。
+- `--seed`: 再現性のある比較を行う場合は `--seed`（既定値 `42`）を指定してください。
 
-再現性のある比較を行う場合は `--seed`（既定値 `42`）を指定してください。スクリプトは各パイプラインの処理時間を表示し、終了後に一時出力をクリーンアップします。
+スクリプトは各パイプラインの処理時間を表示し、終了後に一時出力をクリーンアップします。
 
 ## 🆘 サポート
 
@@ -100,13 +119,17 @@ uv run python scripts/benchmark_pipeline.py --count 5000 --workers 8
 
 - **main** — リリース可能なコード（`vX.Y.Z` でタグ付け）。
 - **develop** — 次期リリース候補のステージング。
-- **feature/**・**release/**・**hotfix/** ブランチ — 集中した開発用の派生ブランチ。
+- **feature/** — 集中した開発用の派生ブランチ。
+- **release/** — リリース候補の派生ブランチ。
+- **hotfix/** — より緊急な修正用の派生ブランチ。
+- **docs/** — ドキュメンテーションの更新用の派生ブランチ。
 
 Pull Request を送る前に以下を確認してください。
 
 1. `develop` からトピックブランチを作成する。
 2. Lint およびテストが通ることを確認する（[🛠️ 開発](#️-開発)を参照）。
 3. コミットメッセージは [Conventional Commits](https://www.conventionalcommits.org/ja/v1.0.0/) に従う。
+4. pull request は`develop`ブランチに対して送る。
 
 ## 🛠️ 開発
 
