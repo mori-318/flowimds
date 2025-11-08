@@ -1,6 +1,6 @@
 <div align="center">
   <img src="docs/assets/flowimds_rogo.png" alt="flowimds logo" width="100%">
-  <h1>flowimds</h1>
+  <h1>flowimds </h1>
 </div>
 
 <p align="center">
