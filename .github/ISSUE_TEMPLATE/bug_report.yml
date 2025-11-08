@@ -47,7 +47,7 @@ body:
     attributes:
       label: What actually happened?
       description: Include error messages or stack traces if available.
-      placeholder: e.g., `ValueError: ...`
+      placeholder: 'e.g., `ValueError: ...`'
     validations:
       required: true
   - type: textarea
