@@ -11,8 +11,7 @@
   </a>
 </p>
 
-> Writing one-off scripts to process every image at once is tedious. flowimds solves that pain.
-> Compose pipelines to express simple, repeatable batch-processing flows.
+Flowimds delivers reusable image-processing pipelines for entire directories—compose steps and let the tool handle the batch work for you.
 
 [Japanese version](docs/README.ja.md)
 
@@ -124,12 +123,7 @@ We follow a GitFlow-based workflow to keep the library stable while enabling par
 - **hotfix/** — branches for urgent fixes.
 - **docs/** — branches for documentation updates.
 
-Before opening a pull request:
-
-1. Check out a topic branch from `develop`.
-2. Ensure lint and test commands pass (see [🛠️ Development](#️-development)).
-3. Use [Conventional Commits](https://www.conventionalcommits.org/) for commit messages.
-4. Target the `develop` branch when opening the pull request.
+For contribution flow details, see [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) or the Japanese guide [docs/CONTRIBUTING_ja.md](docs/CONTRIBUTING_ja.md).
 
 ## 🛠️ Development
 

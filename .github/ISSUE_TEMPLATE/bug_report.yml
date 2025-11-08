@@ -1,63 +1,60 @@
-name: Bug report
-description: Use this template to report a bug.
-title: "[Bug] "
+name: 🐛 Bug Report
+description: Report an issue that should be fixed.
 labels:
   - bug
 body:
   - type: markdown
     attributes:
       value: |
-        Thank you for filing a bug report. Please provide as much detail as possible.
+        Thank you for helping us improve flowimds!
+
+        If you need usage support rather than reporting a bug, please start a thread in [GitHub Discussions](https://github.com/mori-318/flowimds/discussions).
+
+        Please include as much detail as possible so we can reproduce and fix the issue quickly.
   - type: input
-    id: summary
+    id: version
     attributes:
-      label: Summary
-      description: Describe the bug in one sentence.
-      placeholder: e.g., Exception occurs while loading images during pipeline execution
+      label: Which version of flowimds are you using?
+      placeholder: 0.0.0
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: What platform or runtime are you using? (Include versions if possible)
+      placeholder: macOS 14.1, Python 3.11.6, uv 0.4.20, etc.
     validations:
       required: true
   - type: textarea
-    id: steps
+    id: reproduction
     attributes:
-      label: Steps to reproduce
-      description: Provide a numbered list of steps to reproduce the issue.
+      label: What steps can reproduce the bug?
+      description: Explain the bug and provide a minimal reproducible example if possible.
       placeholder: |
-        1. ...
-        2. ...
+        1. Run `...`
+        2. Execute the pipeline with ...
+        3. Observe ...
     validations:
       required: true
   - type: textarea
     id: expected
     attributes:
-      label: Expected behavior
-      description: Explain what you expected to happen.
+      label: What did you expect to happen?
     validations:
       required: true
   - type: textarea
     id: actual
     attributes:
-      label: Actual behavior
-      description: Describe what actually happened, including error messages.
-      placeholder: |
-        e.g., `ValueError: ...`
-    validations:
-      required: true
-  - type: textarea
-    id: env
-    attributes:
-      label: Environment
-      description: Provide OS, Python version, flowimds version, and other relevant details.
-      placeholder: |
-        - OS: macOS 14.0
-        - Python: 3.11.6
-        - flowimds: 0.2.0
+      label: What actually happened?
+      description: Include error messages or stack traces if available.
+      placeholder: e.g., `ValueError: ...`
     validations:
       required: true
   - type: textarea
     id: additional
     attributes:
       label: Additional context
-      description: Share logs, screenshots, or any other helpful details.
+      description: Share logs, screenshots, or other details that might help.
       placeholder: Relevant logs, screenshots, or links
     validations:
       required: false

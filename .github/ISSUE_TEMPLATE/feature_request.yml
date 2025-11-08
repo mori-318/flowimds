@@ -1,52 +1,43 @@
-name: Feature request
-description: Use this template to suggest a new feature or improvement.
-title: "[Feature] "
+name: 🚀 Feature Request
+description: Suggest an idea, feature, or enhancement.
 labels:
   - enhancement
 body:
   - type: markdown
     attributes:
       value: |
-        Thank you for your suggestion. Please explain the background and goal clearly.
-  - type: input
+        Thank you for submitting an idea. It helps make flowimds better.
+  - type: textarea
     id: summary
     attributes:
-      label: Summary
-      description: Summarize the proposal in one sentence.
+      label: What feature are you proposing?
+      description: Provide a clear description of what you want to happen.
       placeholder: e.g., Add a CLI option to automate image batch processing
     validations:
       required: true
   - type: textarea
     id: motivation
     attributes:
-      label: Motivation
-      description: Describe the current problem and the goal you want to achieve.
+      label: Why is this feature valuable?
+      description: Explain the problem this feature would solve or the benefit it provides.
       placeholder: |
-        - Manual workflow X is time-consuming
-        - We want to support use case Y
+        - Current workflow requires manual steps...
+        - This would support use case Y...
     validations:
       required: true
   - type: textarea
-    id: proposal
+    id: implementation
     attributes:
-      label: Proposed solution
-      description: Describe the solution or feature in detail.
-      placeholder: Outline desired behavior, specifications, or implementation ideas
-    validations:
-      required: true
-  - type: textarea
-    id: alternatives
-    attributes:
-      label: Alternatives
-      description: Share any alternative approaches considered.
-      placeholder: e.g., Control via environment variables
+      label: Do you have a proposed solution?
+      description: Outline potential implementation ideas, API design, or examples.
+      placeholder: Describe how you imagine the feature working.
     validations:
       required: false
   - type: textarea
     id: additional
     attributes:
       label: Additional context
-      description: Provide related issues, documents, or reference links.
-      placeholder: Relevant resources or URLs
+      description: Include related issues, references, or screenshots if helpful.
+      placeholder: Relevant references or URLs
     validations:
       required: false
