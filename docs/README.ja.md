@@ -117,7 +117,7 @@ uv run python scripts/benchmark_pipeline.py --count 5000 --workers 8
 
 - **main** — リリース可能なコード（`vX.Y.Z` でタグ付け）。
 - **develop** — 次期リリース候補のステージング。
-- **feature/** — 集中した開発用の派生ブランチaa。
+- **feature/** — 集中した開発用の派生ブランチ。
 - **release/** — リリース候補の派生ブランチ。
 - **hotfix/** — より緊急な修正用の派生ブランチ。
 - **docs/** — ドキュメンテーションの更新用の派生ブランチ。
