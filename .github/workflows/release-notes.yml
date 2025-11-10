@@ -1,0 +1,40 @@
+name: Generate release notes from changelog
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-release:
+    name: Update GitHub release body
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Pythonをセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: CHANGELOGからリリースノートを抽出
+        run: |
+          python scripts/generate_release_notes.py \
+            --tag "${{ github.event.release.tag_name }}" \
+            --output release_notes.md
+
+      - name: リリース本文を更新
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('release_notes.md', 'utf8');
+            await github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: context.payload.release.id,
+              body,
+            });
