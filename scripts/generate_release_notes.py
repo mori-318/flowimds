@@ -1,9 +1,8 @@
 """Script to extract release notes from ``CHANGELOG.md``."""
-from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import re
+from pathlib import Path
 
 
 def parse_args() -> argparse.Namespace:
@@ -29,7 +28,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=Path,
-        help="Destination file path for the extracted release notes. Defaults to stdout.",
+        help=(
+            "Destination file path for the extracted release notes. "
+            "Defaults to stdout."
+        ),
     )
     return parser.parse_args()
 
@@ -66,7 +68,7 @@ def extract_section(changelog_text: str, version: str) -> str:
         raise ValueError(f"Section for version {version} was not found.")
 
     start_index = heading_match.start()
-    remainder = changelog_text[heading_match.end():]
+    remainder = changelog_text[heading_match.end() :]
     next_heading_match = re.search(r"^## \[", remainder, re.MULTILINE)
     end_index = (
         heading_match.end() + next_heading_match.start()
