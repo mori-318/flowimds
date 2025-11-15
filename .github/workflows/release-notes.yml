@@ -20,7 +20,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: CHANGELOGからリリースノートを抽出
+      - name: CHANGELOGからリリースノートを作成
         run: |
           python scripts/generate_release_notes.py \
             --tag "${{ github.event.release.tag_name }}" \
