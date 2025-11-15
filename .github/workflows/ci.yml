@@ -22,7 +22,7 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v1
         with:
-          python-version: ${{ matrix.python-version }}
+          version: ${{ matrix.python-version }}
           enable-cache: true
 
       - name: Sync dependencies
