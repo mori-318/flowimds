@@ -28,7 +28,7 @@ jobs:
         uses: astral-sh/setup-uv@v1
         with:
           version: "0.9.4"
-          enable-cache: true
+          enable-cache: false
 
       - name: Sync dependencies
         run: |
