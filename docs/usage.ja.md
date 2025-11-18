@@ -48,7 +48,7 @@ paths = [
 
 pipeline = fi.Pipeline(
     steps=[fi.ResizeStep((256, 256)), fi.BinarizeStep(mode="otsu")],
-    input_path="samples/input",
+    input_path=None,
     output_path="samples/output",
 )
 
@@ -58,6 +58,7 @@ for mapping in result.output_mappings:
 ```
 
 `run_on_paths` は対象ファイルを事前に把握している場合や、複数のディレクトリにまたがる入力をまとめて処理したい場合に有効です。
+このメソッドは `Pipeline` インスタンスに設定された `input_path` を使用しないため、`input_path` が設定されている状態で `run_on_paths()` を呼び出すとエラーになります。
 
 ### `run_on_arrays` でメモリ内だけで完結させる
 
@@ -81,7 +82,8 @@ print(f"Got {len(transformed)} transformed images")
 
 `run_on_arrays` はファイルシステムを使わずに NumPy 配列だけを処理します。入力イテラブルの各要素が NumPy 配列かどうかを検証し、同じ順序で変換結果のリストを返します。
 
-`run_on_arrays` のみを利用する場合、入出力パスは省略可能です。同じインスタンスで後から `run()` や `run_on_paths()` を呼ぶときは、既存ディレクトリを指す `input_path` / `output_path` を指定しておきましょう。そうしないと、入力探索や出力保存のタイミングでエラーになります。
+`run_on_arrays` のみを利用する場合、`input_path` / `output_path` は省略可能です。  
+同じインスタンスで後から `run()` を呼ぶ場合は、有効なディレクトリを指す `input_path` と `output_path` の両方を、`run_on_paths()` を呼ぶ場合は `output_path` をそれぞれ設定しておく必要があります。これらが未設定のまま実行すると、入力探索や出力保存のタイミングでエラーになります。
 
 ### `PipelineResult` を活用する
 
