@@ -48,7 +48,6 @@ paths = [
 
 pipeline = fi.Pipeline(
     steps=[fi.ResizeStep((256, 256)), fi.BinarizeStep(mode="otsu")],
-    input_path=None,
     output_path="samples/output",
 )
 
