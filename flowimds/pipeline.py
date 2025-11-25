@@ -131,6 +131,9 @@ class Pipeline:
         Returns:
             ``PipelineResult`` describing the execution outcome.
         """
+        if self._input_path is not None:
+            msg = "input_path must not be provided to use run_on_paths()."
+            raise ValueError(msg)
 
         if self._output_path is None:
             msg = "output_path must be provided to use run_on_paths()."

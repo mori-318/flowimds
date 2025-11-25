@@ -48,7 +48,6 @@ paths = [
 
 pipeline = fi.Pipeline(
     steps=[fi.ResizeStep((256, 256)), fi.BinarizeStep(mode="otsu")],
-    input_path="samples/input",
     output_path="samples/output",
 )
 
@@ -58,6 +57,8 @@ for mapping in result.output_mappings:
 ```
 
 `run_on_paths` is helpful when you already know which files you want to process or when your inputs span multiple directories.
+This method does not use the `input_path` configured on the `Pipeline` instance, so calling `run_on_paths()` when `input_path` is set will result in an error.
+
 
 ### Working entirely in memory with `run_on_arrays`
 
@@ -81,7 +82,8 @@ print(f"Got {len(transformed)} transformed images")
 
 `run_on_arrays` never touches the filesystem. It validates that every element in the input iterable is a NumPy array and returns a list of transformed arrays in the same order.
 
-When you only call `run_on_arrays`, the filesystem paths remain optional. If you later call `run()` or `run_on_paths()` on the same pipeline instance, provide `input_path` / `output_path` values that point to existing directories so the pipeline can discover inputs and persist outputs.
+When you only use `run_on_arrays`, both `input_path` and `output_path` can be omitted.  
+If you later call `run()` on the same instance, you must configure both `input_path` and `output_path` to point to valid directories. If you call `run_on_paths()`, you must configure `output_path`. If these are not set, errors will occur during input discovery or when saving outputs.
 
 ### Inspecting `PipelineResult`
 

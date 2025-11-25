@@ -225,7 +225,7 @@ def test_pipeline_run_on_paths_processes_explicit_list(
     image_paths = _collect_images(simple_input_dir, recursive=False)
 
     pipeline = Pipeline(
-        input_path=simple_input_dir,
+        input_path=None,
         output_path=output_dir,
         steps=[ResizeStep(target_size)],
         recursive=False,
@@ -267,6 +267,29 @@ def test_run_raises_when_output_path_missing(simple_input_dir: Path) -> None:
         match=re.escape("output_path must be provided to use run()."),
     ):
         pipeline.run()
+
+
+def test_run_raises_when_input_path_defined(
+    simple_input_dir: Path,
+    output_dir: Path,
+) -> None:
+    """`Pipeline.run_on_paths` must not accept an input path."""
+
+    target_size = (28, 28)
+    image_paths = _collect_images(simple_input_dir, recursive=False)
+
+    pipeline = Pipeline(
+        input_path=simple_input_dir,
+        output_path=output_dir,
+        steps=[ResizeStep(target_size)],
+        recursive=False,
+        preserve_structure=False,
+    )
+    with pytest.raises(
+        ValueError,
+        match=re.escape("input_path must not be provided to use run_on_paths()."),
+    ):
+        pipeline.run_on_paths(image_paths)
 
 
 def test_run_on_paths_raises_when_output_path_missing() -> None:
