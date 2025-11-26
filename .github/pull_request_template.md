@@ -14,9 +14,7 @@
 
 ## Testing
 
-- [ ] `uv run black --check .`
 - [ ] `uv run ruff check .`
-- [ ] `uv run ruff format --check .`
 - [ ] `uv run pytest`
 
 ## Checklist
@@ -24,6 +22,7 @@
 - [ ] Tests were added or updated
 - [ ] Documentation was updated
 - [ ] Confirmed no breaking changes (or documented the impact)
+- [ ] Ruff formatting was verified (`uv run ruff format --check .`)
 
 ## Notes
 
