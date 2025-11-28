@@ -146,6 +146,33 @@ uv run python scripts/generate_test_data.py
 uv run pytest
 ```
 
+### Docker 開発環境
+
+`docker/Dockerfile` からビルドしたコンテナを使えば、依存関係を共通化した状態で開発できます。主なワークフローは次の 2 パターンです。
+
+1. **テストを一度だけ実行したい場合**（テスト完了でコンテナ終了）
+
+   ```bash
+   docker compose -f docker/docker-compose.yml up --build
+   ```
+
+2. **開発中に対話的に作業したい場合**（推奨）
+
+   ```bash
+   # イメージをビルド（キャッシュ済みなら何もしません）
+   docker compose -f docker/docker-compose.yml build
+
+   # シェル付きでコンテナを起動
+   docker compose -f docker/docker-compose.yml run --rm app bash
+
+   # コンテナ内（最初から /app のため cd 不要）
+   uv sync --all-extras --dev   # 依存関係をマウント済み .venv にインストール
+   uv run pytest
+   uv run black --check .
+   ```
+
+`docker compose exec app ...` は `up` で起動したコンテナが稼働中の間だけ使用できます。本リポジトリではデフォルトコマンドがテスト完了後に終了するため、対話作業には `run --rm app bash` を使ってください。
+
 ## 📄 ライセンス
 
 本プロジェクトは [MIT License](../LICENSE) の下で公開しています。

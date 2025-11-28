@@ -147,6 +147,35 @@ uv run python scripts/generate_test_data.py
 uv run pytest
 ```
 
+### Docker powered environment
+
+You can standardize the development environment inside containers built from `docker/Dockerfile`. Dependencies are installed with `uv sync --all-extras --dev` during build, so any `uv` command (e.g., `uv run pytest`) is reproducible.
+
+Two typical workflows exist:
+
+1. **Run the suite once in a disposable container** (container exits when tests finish):
+
+   ```bash
+   docker compose -f docker/docker-compose.yml up --build
+   ```
+
+2. **Open an interactive shell for iterative work** (recommended while developing):
+
+   ```bash
+   # Build the image (no-op if cached)
+   docker compose -f docker/docker-compose.yml build
+
+   # Start an interactive container with a clean shell
+   docker compose -f docker/docker-compose.yml run --rm app bash
+
+   # Inside the container (already at /app)
+   uv sync --all-extras --dev   # install deps into the mounted .venv
+   uv run pytest
+   uv run black --check .
+   ```
+
+`docker compose exec app ...` works only while a container started with `up` is still running. Because the default command runs `uv run pytest` and exits immediately, use `run --rm app bash` whenever you need an interactive session.
+
 ## 📄 License
 
 This project is released under the [MIT License](LICENSE).
