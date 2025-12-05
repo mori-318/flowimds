@@ -176,6 +176,23 @@ Two typical workflows exist:
 
 `docker compose exec app ...` works only while a container started with `up` is still running. Because the default command runs `uv run pytest` and exits immediately, use `run --rm app bash` whenever you need an interactive session.
 
+### Dev Container
+
+A VS Code Dev Container configuration is provided under `.devcontainer/`. If you use the **Dev Containers** extension, you can open this repository in a container and work inside a reproducible Docker-based development environment.
+
+#### Using with VS Code
+
+1. Install and start Docker.
+2. Install the "Dev Containers" extension in VS Code (if you do not have it yet).
+3. Open this repository in VS Code and run "Dev Containers: Reopen in Container" from the command palette.
+4. Inside the container, install dependencies and run the usual development commands:
+
+     ```bash
+     uv sync --all-extras --dev
+     uv run pytest
+     uv run black --check .
+     ```
+
 ## 📄 License
 
 This project is released under the [MIT License](LICENSE).

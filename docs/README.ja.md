@@ -173,6 +173,23 @@ uv run pytest
 
 `docker compose exec app ...` は `up` で起動したコンテナが稼働中の間だけ使用できます。本リポジトリではデフォルトコマンドがテスト完了後に終了するため、対話作業には `run --rm app bash` を使ってください。
 
+### Dev Container
+
+VS Code の Dev Container 設定がリポジトリルートの `.devcontainer/` ディレクトリに用意されています。**Dev Containers** 拡張機能を使うことで、このリポジトリをコンテナ内で開き、再現性のある Docker ベースの開発環境で作業できます。
+
+#### VS Code からの利用手順
+
+1. Docker をインストールして起動します。
+2. VS Code に「Dev Containers」拡張機能をインストールします。
+3. このリポジトリを VS Code で開き、コマンドパレットから「Dev Containers: Reopen in Container」を実行します。
+4. コンテナ内で依存関係をインストールし、通常どおり開発コマンドを実行します。
+
+   ```bash
+   uv sync --all-extras --dev
+   uv run pytest
+   uv run black --check .
+   ```
+
 ## 📄 ライセンス
 
 本プロジェクトは [MIT License](../LICENSE) の下で公開しています。
