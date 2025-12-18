@@ -24,13 +24,12 @@ pipeline = fi.Pipeline(
         fi.GrayscaleStep(),
         fi.DenoiseStep(mode="median", kernel_size=5),
     ],
-    input_path="/path/to/input",  # str でも pathlib.Path でも可
-    output_path="/path/to/output",
     recursive=True,
     preserve_structure=True,
 )
 
-result = pipeline.run()
+result = pipeline.run(input_path="/path/to/input")  # str でも pathlib.Path でも可
+result.save("/path/to/output")
 print(f"Processed {result.processed_count} images in {result.duration_seconds:.2f}s")
 ```
 
@@ -48,16 +47,15 @@ paths = [
 
 pipeline = fi.Pipeline(
     steps=[fi.ResizeStep((256, 256)), fi.BinarizeStep(mode="otsu")],
-    output_path="samples/output",
 )
 
-result = pipeline.run_on_paths(paths)
+result = pipeline.run(input_paths=paths)
+result.save("samples/output")
 for mapping in result.output_mappings:
     print(f"{mapping.input_path} -> {mapping.output_path}")
 ```
 
-`run_on_paths` は対象ファイルを事前に把握している場合や、複数のディレクトリにまたがる入力をまとめて処理したい場合に有効です。
-このメソッドは `Pipeline` インスタンスに設定された `input_path` を使用しないため、`input_path` が設定されている状態で `run_on_paths()` を呼び出すとエラーになります。
+`input_paths` は対象ファイルを事前に把握している場合や、複数のディレクトリにまたがる入力をまとめて処理したい場合に有効です。`run()` を呼ぶたびに `input_path` / `input_paths` のどちらかを指定でき、引数で渡した方が優先されます。
 
 ### `run_on_arrays` でメモリ内だけで完結させる
 
@@ -72,17 +70,16 @@ def brighten(image: np.ndarray) -> np.ndarray:
     return np.clip(image + 40, 0, 255).astype(image.dtype)
 
 pipeline = fi.Pipeline(
-    steps=[fi.GrayscaleStep(), brighten],
+    step = fi.GrayscaleStep(),
 )
 
-transformed = pipeline.run_on_arrays(images)
-print(f"Got {len(transformed)} transformed images")
+result = pipeline.run(input_arrays=images)
+print(f"Got {len(result.processed_images)} transformed images")
 ```
 
-`run_on_arrays` はファイルシステムを使わずに NumPy 配列だけを処理します。入力イテラブルの各要素が NumPy 配列かどうかを検証し、同じ順序で変換結果のリストを返します。
+`input_arrays` はファイルシステムを使わずに NumPy 配列だけを処理します。入力イテラブルの各要素が NumPy 配列かどうかを検証し、変換結果は `PipelineResult.processed_images` に蓄えられます。必要に応じて `result.save(...)` で任意のディレクトリへ書き出してください。
 
-`run_on_arrays` のみを利用する場合、`input_path` / `output_path` は省略可能です。  
-同じインスタンスで後から `run()` を呼ぶ場合は、有効なディレクトリを指す `input_path` と `output_path` の両方を、`run_on_paths()` を呼ぶ場合は `output_path` をそれぞれ設定しておく必要があります。これらが未設定のまま実行すると、入力探索や出力保存のタイミングでエラーになります。
+`input_arrays` だけを利用する場合、パイプラインに `input_path` / `output_path` を設定する必要はありません。後から `run(input_path=...)` や `run(input_paths=...)` を呼ぶときに、必要なパスをその都度引数で渡せば十分です。
 
 ### `PipelineResult` を活用する
 

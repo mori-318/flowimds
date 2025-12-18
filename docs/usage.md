@@ -120,9 +120,9 @@ if result.failed_count > 0:
         print("Retrying with simpler pipeline...")
         retry_pipeline = fi.Pipeline(
             steps=[fi.ResizeStep((256, 256))],  # Minimal processing
-            output_path="retries",
         )
-        retry_result = retry_pipeline.run_on_paths(result.failed_files)
+        retry_result = retry_pipeline.run(input_paths=result.failed_files)
+        retry_result.save("retries")
         print(f"Recovered: {retry_result.processed_count}/{result.failed_count}")
 ```
 
@@ -215,7 +215,7 @@ def robust_pipeline_processing(input_path, output_path, max_retries=2):
         complexity = ["simple", "minimal"][retry_attempts - 1]
 
         print(f"Retry {retry_attempts}/{max_retries} with {complexity} pipeline...")
-        retry_result = create_pipeline(complexity).run_on_paths(failed_files)
+        retry_result = create_pipeline(complexity).run(input_paths=failed_files)
 
         # Update failed files list
         newly_failed = set(failed_files) - set(retry_result.output_mappings)
@@ -281,8 +281,10 @@ Pipelines accept either `str` or `pathlib.Path` values for filesystem paths. The
 | Setting | Type | Description |
 | --- | --- | --- |
 | `steps` | iterable of `PipelineStep` | Ordered sequence of transforms applied to each image. Any object exposing `apply(image)` can be used. |
-| `input_path` | `str` or `Path` (optional) | Folder to scan for images when using `run`. Omit when only calling `run_on_arrays`. |
-| `output_path` | `str` or `Path` (optional) | Folder where transformed files will be written. Required for `run` / `run_on_paths`; omit when only calling `run_on_arrays`. |
+| `input_path` | `str` or `Path` (optional) | Folder to scan for images when using `run(input_path=...)`. Provide per call when discovering directories. |
+| `input_paths` | iterable of `str | Path` (optional) | Explicit file list processed when calling `run(input_paths=...)`. |
+| `input_arrays` | iterable of `np.ndarray` (optional) | In-memory images processed when calling `run(input_arrays=...)`. |
+| `output_path` | `str` or `Path` (optional) | Preconfigured destination used only when persisting directly from the pipeline instance. Most flows call `PipelineResult.save(...)` with an explicit path instead. |
 | `recursive` | `bool` | Enables recursive directory traversal when collecting images. |
 | `preserve_structure` | `bool` | If `True`, mirrors the input directory hierarchy inside `output_path`. Otherwise every output is placed directly under `output_path`. |
 | `worker_count` | `int` (optional) | Maximum number of worker threads for parallel processing. `None` uses ~70% of CPU cores, `1` for sequential, `0` for all cores. |
@@ -362,10 +364,10 @@ def process_in_batches(input_dir, output_dir, batch_size=100):
         batch = all_images[i:i + batch_size]
         pipeline = fi.Pipeline(
             steps=[fi.ResizeStep((512, 512))],
-            output_path=output_dir,
             worker_count=4,  # Conservative for memory
         )
-        result = pipeline.run_on_paths(batch)
+        result = pipeline.run(input_paths=batch)
+        result.save(output_dir)
         print(f"Batch {i//batch_size + 1}: {result.processed_count} processed")
 ```
 
