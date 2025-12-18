@@ -1,7 +1,7 @@
 """Unit tests that define the expected behaviour of ``Pipeline``."""
 
 from pathlib import Path
-from typing import assert_type
+from typing import assert_type, cast
 
 import cv2
 import numpy as np
@@ -20,7 +20,10 @@ def create_pipeline_with_resize_step(size: tuple[int, int]) -> Pipeline:
         preserve_structure=True,
     )
 
-def check_result_images(result_images: list[Path], simple_input_dir: Path, target_size: tuple[int, int]) -> None:
+
+def check_result_images(
+    result_images: list[Path], simple_input_dir: Path, target_size: tuple[int, int]
+) -> None:
     input_images = collect_image_paths(simple_input_dir)
     assert len(result_images) == len(input_images)
     for result_path in result_images:
@@ -29,6 +32,7 @@ def check_result_images(result_images: list[Path], simple_input_dir: Path, targe
         height, width = image.shape[:2]
         assert (width, height) == target_size
 
+
 def _normalise_mapping(mapping: object) -> tuple[Path, Path]:
     """Convert mapping objects into ``(input_path, output_path)`` tuples."""
 
@@ -36,7 +40,10 @@ def _normalise_mapping(mapping: object) -> tuple[Path, Path]:
         return Path(mapping.input_path), Path(mapping.output_path)
     if isinstance(mapping, dict):  # pragma: no cover - defensive branch
         return Path(mapping["input_path"]), Path(mapping["output_path"])
-    input_path, output_path = mapping  # type: ignore[misc]
+    input_path, output_path = cast(
+        tuple[str | Path, str | Path],
+        mapping,
+    )
     return Path(input_path), Path(output_path)
 
 
@@ -83,10 +90,14 @@ def test_pipeline_applies_steps_and_generates_results(
         assert Path(source_path) in input_images
         assert output_path.is_relative_to(output_dir)
         assert output_path.exists()
-        height, width = cv2.imread(str(output_path)).shape[:2]
+        image = cv2.imread(str(output_path))
+        assert image is not None
+        height, width = image.shape[:2]
         assert (width, height) == target_size
     assert result.settings["recursive"] is False
-    assert Path(result.settings["input_path"]) == simple_input_dir
+    input_setting = result.settings["input_path"]
+    assert input_setting is not None
+    assert Path(input_setting) == simple_input_dir
     assert result.settings["output_path"] is None
     assert result.duration_seconds >= 0
 
@@ -259,12 +270,12 @@ def test_run_raises_when_input_path_defined(
         recursive=False,
         preserve_structure=False,
     )
-    
+
     # This should work - we can use input_paths with input_path set
     result = pipeline.run(input_paths=image_paths)
     result.save(output_dir)
     assert_type(result, PipelineResult)
-    
+
     assert result.processed_count == len(image_paths)
     assert result.failed_count == 0
 
@@ -288,7 +299,11 @@ def test_pipeline_run_on_arrays_returns_transformed_images(
     """`Pipeline.run` with input_arrays should return transformed images in memory."""
 
     image_paths = collect_image_paths(simple_input_dir)
-    arrays = [cv2.imread(str(path), cv2.IMREAD_COLOR) for path in image_paths]
+    arrays = []
+    for path in image_paths:
+        image = cv2.imread(str(path), cv2.IMREAD_COLOR)
+        assert image is not None
+        arrays.append(image)
 
     pipeline = Pipeline(
         steps=[ResizeStep((16, 16))],

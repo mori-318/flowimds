@@ -10,6 +10,7 @@ from flowimds.pipeline import Pipeline, PipelineResult
 from flowimds.steps import ResizeStep
 from flowimds.utils.image_discovery import collect_image_paths
 
+
 def create_pipeline_with_resize_step(size: tuple[int, int]) -> Pipeline:
     return Pipeline(
         steps=[ResizeStep(size)],
@@ -17,7 +18,10 @@ def create_pipeline_with_resize_step(size: tuple[int, int]) -> Pipeline:
         preserve_structure=True,
     )
 
-def check_result_images(result_images: list[Path], simple_input_dir: Path, target_size: tuple[int, int]) -> None:
+
+def check_result_images(
+    result_images: list[Path], simple_input_dir: Path, target_size: tuple[int, int]
+) -> None:
     input_images = collect_image_paths(simple_input_dir)
     assert len(result_images) == len(input_images)
     for result_path in result_images:
@@ -25,6 +29,7 @@ def check_result_images(result_images: list[Path], simple_input_dir: Path, targe
         assert image is not None
         height, width = image.shape[:2]
         assert (width, height) == target_size
+
 
 @pytest.mark.usefixtures("simple_input_dir")
 def test_pipeline_run_and_save(simple_input_dir: Path, output_dir: Path) -> None:
@@ -52,7 +57,9 @@ def test_pipeline_run_and_save(simple_input_dir: Path, output_dir: Path) -> None
     check_result_images(output_images, simple_input_dir, target_size)
 
 
-def test_pipeline_run_on_paths_and_save(simple_input_dir: Path, output_dir: Path) -> None:
+def test_pipeline_run_on_paths_and_save(
+    simple_input_dir: Path, output_dir: Path
+) -> None:
     """Pipeline should run first, then persist via ``PipelineResult.save``."""
     input_paths = collect_image_paths(simple_input_dir)
 
@@ -72,9 +79,15 @@ def test_pipeline_run_on_paths_and_save(simple_input_dir: Path, output_dir: Path
     check_result_images(output_images, simple_input_dir, target_size)
 
 
-def test_pipeline_run_on_arrays_and_save(simple_input_dir: Path, output_dir: Path) -> None:
+def test_pipeline_run_on_arrays_and_save(
+    simple_input_dir: Path, output_dir: Path
+) -> None:
     input_paths = collect_image_paths(simple_input_dir)
-    input_image_arrays = [cv2.imread(str(path)) for path in input_paths]
+    input_image_arrays = []
+    for path in input_paths:
+        image = cv2.imread(str(path))
+        assert image is not None
+        input_image_arrays.append(image)
 
     # define pipeline
     target_size = (24, 24)
@@ -95,4 +108,3 @@ def test_pipeline_run_on_arrays_and_save(simple_input_dir: Path, output_dir: Pat
     # compare results saved on disk
     output_images = collect_image_paths(output_dir)
     check_result_images(output_images, simple_input_dir, target_size)
-

@@ -24,17 +24,16 @@ pipeline = fi.Pipeline(
         fi.GrayscaleStep(),
         fi.DenoiseStep(mode="median", kernel_size=5),
     ],
-    input_path="/path/to/input",  # str or pathlib.Path
-    output_path="/path/to/output",
     recursive=True,
     preserve_structure=True,
 )
 
-result = pipeline.run()
+result = pipeline.run(input_path="/path/to/input")  # str or pathlib.Path
+result.save("/path/to/output")
 print(f"Processed {result.processed_count} images in {result.duration_seconds:.2f}s")
 ```
 
-Use this form when you want the library to scan a directory for supported image types (`.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, `.tif`). Set `recursive=True` to traverse subdirectories and `preserve_structure=True` to mirror the input tree under the output directory.
+Use this form when you want the library to scan a directory for supported image types (`.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, `.tif`). Set `recursive=True` to traverse subdirectories and `preserve_structure=True` to mirror the input tree whenever you call `PipelineResult.save`.
 
 ### Running against an explicit list of paths
 
@@ -48,19 +47,18 @@ paths = [
 
 pipeline = fi.Pipeline(
     steps=[fi.ResizeStep((256, 256)), fi.BinarizeStep(mode="otsu")],
-    output_path="samples/output",
 )
 
-result = pipeline.run_on_paths(paths)
+result = pipeline.run(input_paths=paths)
+result.save("samples/output")
 for mapping in result.output_mappings:
     print(f"{mapping.input_path} -> {mapping.output_path}")
 ```
 
-`run_on_paths` is helpful when you already know which files you want to process or when your inputs span multiple directories.
-This method does not use the `input_path` configured on the `Pipeline` instance, so calling `run_on_paths()` when `input_path` is set will result in an error.
+`input_paths` is helpful when you already know which files you want to process or when your inputs span multiple directories. You can mix `input_path` and `input_paths` across runs; whichever argument you pass to `run()` wins for that call.
 
 
-### Working entirely in memory with `run_on_arrays`
+### Working entirely in memory with `input_arrays`
 
 ```python
 import flowimds as fi
@@ -76,14 +74,13 @@ pipeline = fi.Pipeline(
     steps=[fi.GrayscaleStep(), brighten],
 )
 
-transformed = pipeline.run_on_arrays(images)
-print(f"Got {len(transformed)} transformed images")
+result = pipeline.run(input_arrays=images)
+print(f"Got {len(result.processed_images)} transformed images")
 ```
 
-`run_on_arrays` never touches the filesystem. It validates that every element in the input iterable is a NumPy array and returns a list of transformed arrays in the same order.
+`input_arrays` never touches the filesystem. It validates that every element in the input iterable is a NumPy array and stores transformed arrays inside the returned `PipelineResult`. Persist them later with `result.save(...)` if you want files on disk.
 
-When you only use `run_on_arrays`, both `input_path` and `output_path` can be omitted.  
-If you later call `run()` on the same instance, you must configure both `input_path` and `output_path` to point to valid directories. If you call `run_on_paths()`, you must configure `output_path`. If these are not set, errors will occur during input discovery or when saving outputs.
+When you only use `input_arrays`, the pipeline does not need any filesystem configuration. If you later call `run()` with `input_path` or `input_paths`, provide those arguments at call time.
 
 ### Inspecting `PipelineResult`
 
@@ -98,7 +95,7 @@ def summarise(result: fi.PipelineResult) -> None:
     for mapping in result.output_mappings:
         print(f"Saved {mapping.input_path.name} to {mapping.output_path}")
 
-result = pipeline.run()
+result = pipeline.run(input_path="/path/to/input")
 summarise(result)
 ```
 

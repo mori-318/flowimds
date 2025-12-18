@@ -36,22 +36,19 @@ import flowimds as fi
 # Define the pipeline
 # Args:
 #   steps: sequence of pipeline steps
-#   input_path: input directory path
-#   output_path: output directory path
 #   recursive: whether to traverse subdirectories (default: False)
-#   preserve_structure: whether to mirror the input tree (default: True)
+#   preserve_structure: whether to mirror the input tree when saving (default: True)
 pipeline = fi.Pipeline(
     steps=[
         fi.ResizeStep((128, 128)),
         fi.GrayscaleStep(),
     ],
-    input_path="samples/input",
-    output_path="samples/output",
     recursive=True,
     preserve_structure=True,
 )
 
-result = pipeline.run()
+result = pipeline.run(input_path="samples/input")
+result.save("samples/output")
 
 # Inspect the result
 # Fields:

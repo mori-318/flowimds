@@ -1,13 +1,13 @@
 """The newest pipeline core implementation after version 0.2.0."""
 
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from dataclasses import dataclass
 import os
 from pathlib import Path
 from threading import Lock
 from time import perf_counter
-from typing import Callable, Iterable, TypedDict
+from typing import Callable, Iterable, TypedDict, cast
 
 import numpy as np
 from tqdm import tqdm
@@ -83,15 +83,18 @@ class PipelineResult:
 
         preserve_structure = bool(self.settings.get("preserve_structure", False))
         source_root = self.source_root
-        if source_root is None and self.settings.get("input_path"):
-            source_root = Path(self.settings["input_path"])
+        input_setting = self.settings.get("input_path")
+        if source_root is None and input_setting:
+            source_root = Path(input_setting)
 
         used_names: set[str] = set()
+        used_names_lock = Lock()
 
-        for index, processed in enumerate(self.processed_images, start=1):
-            source = processed.input_path
-            image = processed.image
+        def _allocate_filename(base_name: str) -> str:
+            with used_names_lock:
+                return self._ensure_unique_name(base_name, used_names)
 
+        def _resolve_destination(index: int, source: Path | None) -> Path:
             if (
                 preserve_structure
                 and source is not None
@@ -99,25 +102,91 @@ class PipelineResult:
                 and source.is_relative_to(source_root)
             ):
                 relative_path = source.relative_to(source_root)
-                destination_path = destination_root / relative_path
-            elif source is not None:
-                filename = self._ensure_unique_name(source.name, used_names)
-                destination_path = destination_root / filename
+                return destination_root / relative_path
+            if source is not None:
+                filename = _allocate_filename(source.name)
             else:
-                filename = self._ensure_unique_name(f"image_{index}.png", used_names)
-                destination_path = destination_root / filename
+                filename = _allocate_filename(f"image_{index}.png")
+            return destination_root / filename
 
+        def _persist(
+            index: int, processed: ProcessedImage
+        ) -> tuple[bool, OutputMapping | str]:
+            source = processed.input_path
+            image = processed.image
+
+            destination_path = _resolve_destination(index, source)
             destination_path.parent.mkdir(parents=True, exist_ok=True)
 
             if write_image(str(destination_path), image):
-                self.output_mappings.append(
-                    OutputMapping(
-                        input_path=source or Path(f"array_{index}"),
-                        output_path=destination_path,
-                    ),
+                return True, OutputMapping(
+                    input_path=source or Path(f"array_{index}"),
+                    output_path=destination_path,
                 )
+            return False, str(source) if source else f"array_{index}"
+
+        total = len(self.processed_images)
+        worker_count = max(1, int(self.settings.get("worker_count", 1)))
+        log_enabled = bool(self.settings.get("log_enabled", False))
+
+        if log_enabled:
+            logical_cores = os.cpu_count()
+            print(
+                "[flowimds] Saving "
+                f"{total} images | workers: {worker_count} / logical cores: "
+                f"{logical_cores}"
+            )
+
+        progress_bar = (
+            tqdm(total=total, desc="flowimds (save)", unit="image", leave=False)
+            if log_enabled and total > 0
+            else None
+        )
+
+        def _update_progress() -> None:
+            if progress_bar is not None:
+                progress_bar.update(1)
+
+        tasks = list(enumerate(self.processed_images, start=1))
+
+        try:
+            if worker_count <= 1 or total <= 1:
+                for index, processed in tasks:
+                    success, result = _persist(index, processed)
+                    if success:
+                        mapping = cast(OutputMapping, result)
+                        self.output_mappings.append(mapping)
+                    else:
+                        failed = cast(str, result)
+                        self.failed_files.append(failed)
+                    _update_progress()
             else:
-                self.failed_files.append(str(source) if source else f"array_{index}")
+                with ThreadPoolExecutor(max_workers=worker_count) as executor:
+                    future_to_payload = {
+                        executor.submit(_persist, index, processed): (index, processed)
+                        for index, processed in tasks
+                    }
+                    for future in as_completed(future_to_payload):
+                        index, processed = future_to_payload[future]
+                        try:
+                            success, result = future.result()
+                        except Exception:
+                            success = False
+                            result = (
+                                str(processed.input_path)
+                                if processed.input_path is not None
+                                else f"array_{index}"
+                            )
+                        if success:
+                            mapping = cast(OutputMapping, result)
+                            self.output_mappings.append(mapping)
+                        else:
+                            failed = cast(str, result)
+                            self.failed_files.append(failed)
+                        _update_progress()
+        finally:
+            if progress_bar is not None:
+                progress_bar.close()
 
         self.processed_count = len(self.output_mappings)
         self.failed_count = len(self.failed_files)
@@ -354,8 +423,9 @@ class Pipeline:
         processed_images: list[ProcessedImage] = []
         failed_files: list[str] = []
 
-        total = len(image_paths)
-        for index, image_path in enumerate(image_paths, start=1):
+        paths = list(image_paths)
+        total = len(paths)
+        for index, image_path in enumerate(paths, start=1):
             success, processed = self._process_single_image(image_path)
             if success and processed is not None:
                 processed_images.append(processed)
@@ -377,15 +447,17 @@ class Pipeline:
         processed_images: list[ProcessedImage] = []
         failed_files: list[str] = []
 
-        total = len(image_paths)
+        paths = list(image_paths)
+        total = len(paths)
         completed = 0
 
         with ThreadPoolExecutor(max_workers=worker_count) as executor:
-            futures = [
-                executor.submit(self._process_single_image, path)
-                for path in image_paths
-            ]
-            for image_path, future in zip(image_paths, futures):
+            future_to_path = {
+                executor.submit(self._process_single_image, path): path
+                for path in paths
+            }
+            for future in as_completed(future_to_path):
+                image_path = future_to_path[future]
                 try:
                     success, processed = future.result()
                 except Exception:  # pragma: no cover - defensive

@@ -1,5 +1,7 @@
 """Rotate step implementation."""
+
 from typing import Union
+import math
 
 import cv2
 import numpy as np

@@ -18,16 +18,16 @@ def _ensure_directories(base: Path) -> tuple[Path, Path]:
 
 
 def _create_sample_images(input_dir: Path) -> list[Path]:
-    """Generate a few coloured squares for demonstration."""
+    """Generate a few colored squares for demonstration."""
 
-    colours = (
+    colors = (
         (255, 0, 0),
         (0, 255, 0),
         (0, 0, 255),
     )
     paths: list[Path] = []
-    for index, colour in enumerate(colours):
-        image = np.full((48, 48, 3), colour, dtype=np.uint8)
+    for index, color in enumerate(colors):
+        image = np.full((48, 48, 3), color, dtype=np.uint8)
         path = input_dir / f"sample_{index}.png"
         fi.write_image(str(path), image)
         paths.append(path)
@@ -43,24 +43,22 @@ def main() -> None:
 
     pipeline = fi.Pipeline(
         steps=[fi.ResizeStep((32, 32)), fi.GrayscaleStep()],
-        input_path=input_dir,
-        output_path=output_dir,
         recursive=False,
         preserve_structure=False,
     )
 
-    result = pipeline.run()
+    result = pipeline.run(input_path=input_dir)
     print("Directory run produced the following outputs:")
+    result.save(output_dir)
     for mapping in result.output_mappings:
         print(f" - {mapping.output_path}")
 
     images = [fi.read_image(str(path)) for path in input_paths]
-    transformed = pipeline.run_on_arrays(images)
+    arrays_result = pipeline.run(input_arrays=images)
     print("In-memory run produced the following outputs:")
-    for index, array in enumerate(transformed):
-        destination = output_dir / f"in_memory_{index}.png"
-        fi.write_image(str(destination), array)
-        print(f" - {destination}")
+    arrays_result.save(output_dir)
+    for mapping in arrays_result.output_mappings:
+        print(f" - {mapping.output_path}")
 
 
 if __name__ == "__main__":

@@ -34,23 +34,19 @@ import flowimds as fi
 # パイプラインを定義
 # 引数:
 #   steps: パイプラインのステップ群
-#   input_path: 入力フォルダパス
-#   output_path: 出力フォルダパス
 #   recursive: 再帰的に走査するかどうか（デフォルト: False）
-#   preserve_structure: 構造を保持するかどうか（デフォルト: True）
+#   preserve_structure: 保存時に入力構造を保持するかどうか（デフォルト: True）
 pipeline = fi.Pipeline(
     steps=[
         fi.ResizeStep((128, 128)),
         fi.GrayscaleStep(),
     ],
-    input_path="samples/input",
-    output_path="samples/output",
     recursive=True,
     preserve_structure=True,
 )
 
-# パイプラインを実行
-result = pipeline.run()
+result = pipeline.run(input_path="samples/input")
+result.save("samples/output")
 
 # 結果を表示
 # 結果内容:

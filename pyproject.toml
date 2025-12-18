@@ -86,3 +86,7 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "W"]
 
+[tool.mypy]
+python_version = "3.12"
+files = ["flowimds", "tests", "scripts"]
+
