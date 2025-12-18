@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from threading import Lock
 from time import perf_counter
-from typing import Iterable, TypedDict
+from typing import Callable, Iterable, TypedDict
 
 import numpy as np
 from tqdm import tqdm
@@ -165,6 +165,10 @@ class Pipeline:
         self._preserve_structure = preserve_structure
         self._worker_count = worker_count
         self._log_enabled = log
+        self._input_path: Path | None = None
+        self._output_path: Path | None = None
+        self._destination_lock = Lock()
+        self._flattened_destination_registry: set[str] = set()
 
     def run(
         self,
@@ -179,15 +183,11 @@ class Pipeline:
         provided. When none are provided, the instance-level ``input_path`` is used.
         """
 
-        input_options = [
-            input_path is not None,
-            input_paths is not None,
-            input_arrays is not None,
-        ]
-        if sum(input_options) > 1:
-            msg = "Specify only one of input_path, input_paths, or input_arrays."
-            raise ValueError(msg)
-
+        self._validate_input_selection(
+            input_path=input_path,
+            input_paths=input_paths,
+            input_arrays=input_arrays,
+        )
         if input_arrays is not None:
             return self._run_on_arrays(input_arrays)
 
@@ -227,6 +227,7 @@ class Pipeline:
                 msg = f"Input path '{dir_path}' does not exist."
                 raise FileNotFoundError(msg)
 
+            self._input_path = dir_path
             image_paths = collect_image_paths(
                 dir_path,
                 recursive=self._recursive,
@@ -262,7 +263,7 @@ class Pipeline:
             failed_files=failed_files,
             output_mappings=[],
             duration_seconds=duration,
-            settings=self._build_settings(source_root),
+            settings=self._build_settings(),
             processed_images=processed_images,
             source_root=source_root,
         )
@@ -302,7 +303,7 @@ class Pipeline:
             failed_files=failed_files,
             output_mappings=[],
             duration_seconds=duration,
-            settings=self._build_settings(None),
+            settings=self._build_settings(),
             processed_images=processed_images,
             source_root=None,
         )
@@ -327,17 +328,17 @@ class Pipeline:
                 f"workers: {worker_count} / logical cores: {logical_cores}"
             )
 
-        progress_bar = self._create_progress_bar(len(materialised_paths))
+        progress_bar, progress_tracker = self._prepare_progress(len(materialised_paths))
         try:
             if worker_count <= 1:
                 return self._process_images_sequential(
                     materialised_paths,
-                    progress_bar,
+                    progress_tracker,
                 )
             return self._process_images_parallel(
                 materialised_paths,
                 worker_count,
-                progress_bar,
+                progress_tracker,
             )
         finally:
             if progress_bar is not None:
@@ -346,7 +347,7 @@ class Pipeline:
     def _process_images_sequential(
         self,
         image_paths: Iterable[Path],
-        progress_bar,
+        progress_tracker: Callable[[int], None],
     ) -> tuple[list[ProcessedImage], list[str]]:
         """Process images sequentially and return execution statistics."""
 
@@ -354,7 +355,6 @@ class Pipeline:
         failed_files: list[str] = []
 
         total = len(image_paths)
-        progress_tracker = self._create_progress_tracker(total, progress_bar)
         for index, image_path in enumerate(image_paths, start=1):
             success, processed = self._process_single_image(image_path)
             if success and processed is not None:
@@ -370,7 +370,7 @@ class Pipeline:
         self,
         image_paths: Iterable[Path],
         worker_count: int,
-        progress_bar,
+        progress_tracker: Callable[[int], None],
     ) -> tuple[list[ProcessedImage], list[str]]:
         """Process images in parallel using a thread pool."""
 
@@ -379,7 +379,6 @@ class Pipeline:
 
         total = len(image_paths)
         completed = 0
-        progress_tracker = self._create_progress_tracker(total, progress_bar)
 
         with ThreadPoolExecutor(max_workers=worker_count) as executor:
             futures = [
@@ -424,6 +423,16 @@ class Pipeline:
         cpu_count = os.cpu_count() or 1
         recommended = round(cpu_count * 0.7)
         return max(1, min(cpu_count, recommended))
+
+    def _prepare_progress(
+        self,
+        total: int,
+    ) -> tuple[tqdm | None, Callable[[int], None]]:
+        """Create progress bar and tracker with consistent lifecycle handling."""
+
+        progress_bar = self._create_progress_bar(total)
+        progress_tracker = self._create_progress_tracker(total, progress_bar)
+        return progress_bar, progress_tracker
 
     def _create_progress_tracker(self, total: int, progress_bar):
         """Return a callable that updates progress with minimal branching."""
@@ -591,3 +600,21 @@ class Pipeline:
             msg = f"images[{index}] must be a numpy.ndarray"
             raise TypeError(msg)
         return image
+
+    def _validate_input_selection(
+        self,
+        *,
+        input_path: Path | str | None,
+        input_paths: Iterable[Path | str] | None,
+        input_arrays: Iterable[np.ndarray] | None,
+    ) -> None:
+        """Validate that only one input source kind is provided."""
+
+        input_options = [
+            input_path is not None,
+            input_paths is not None,
+            input_arrays is not None,
+        ]
+        if sum(input_options) > 1:
+            msg = "Specify only one of input_path, input_paths, or input_arrays."
+            raise ValueError(msg)

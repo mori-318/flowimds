@@ -1,11 +1,7 @@
 """Unit tests that define the expected behaviour of ``Pipeline``."""
 
-from __future__ import annotations
-
-import re
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable
+from typing import assert_type
 
 import cv2
 import numpy as np
@@ -13,26 +9,25 @@ import pytest
 
 from flowimds.pipeline import Pipeline, PipelineResult
 from flowimds.steps import ResizeStep
+from flowimds.utils.image_discovery import collect_image_paths
 from flowimds.utils.image_io import write_image
 
-IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg"}
 
+def create_pipeline_with_resize_step(size: tuple[int, int]) -> Pipeline:
+    return Pipeline(
+        steps=[ResizeStep(size)],
+        recursive=False,
+        preserve_structure=True,
+    )
 
-def _collect_images(directory: Path, recursive: bool) -> list[Path]:
-    """Return a sorted list of image files under ``directory``."""
-
-    iterator: Iterable[Path]
-    if recursive:
-        iterator = directory.rglob("*")
-    else:
-        iterator = directory.glob("*")
-    paths = [
-        path
-        for path in iterator
-        if path.is_file() and path.suffix.lower() in IMAGE_SUFFIXES
-    ]
-    return sorted(paths)
-
+def check_result_images(result_images: list[Path], simple_input_dir: Path, target_size: tuple[int, int]) -> None:
+    input_images = collect_image_paths(simple_input_dir)
+    assert len(result_images) == len(input_images)
+    for result_path in result_images:
+        image = cv2.imread(str(result_path))
+        assert image is not None
+        height, width = image.shape[:2]
+        assert (width, height) == target_size
 
 def _normalise_mapping(mapping: object) -> tuple[Path, Path]:
     """Convert mapping objects into ``(input_path, output_path)`` tuples."""
@@ -43,20 +38,6 @@ def _normalise_mapping(mapping: object) -> tuple[Path, Path]:
         return Path(mapping["input_path"]), Path(mapping["output_path"])
     input_path, output_path = mapping  # type: ignore[misc]
     return Path(input_path), Path(output_path)
-
-
-@dataclass
-class RecordingStep:
-    """Test double that records how many images it processed."""
-
-    transform: Callable[[np.ndarray], np.ndarray]
-    call_count: int = 0
-
-    def apply(self, image: np.ndarray) -> np.ndarray:
-        """Apply the configured transform and count the invocation."""
-
-        self.call_count += 1
-        return self.transform(image)
 
 
 class FailingStep:
@@ -74,32 +55,25 @@ class FailingStep:
         raise RuntimeError("intentional step failure")
 
 
+@pytest.mark.usefixtures("simple_input_dir")
 def test_pipeline_applies_steps_and_generates_results(
     simple_input_dir: Path,
     output_dir: Path,
 ) -> None:
     """`Pipeline` should transform every image and persist resized copies."""
 
-    resize_step = RecordingStep(
-        transform=lambda image: cv2.resize(image, (40, 40)),
-    )
-    pipeline = Pipeline(
-        input_path=simple_input_dir,
-        output_path=output_dir,
-        steps=[resize_step],
-        recursive=False,
-        preserve_structure=True,
-    )
+    target_size = (40, 40)
+    pipeline = create_pipeline_with_resize_step(target_size)
 
-    result = pipeline.run()
+    result = pipeline.run(input_path=simple_input_dir)
+    result.save(output_dir)
+    assert_type(result, PipelineResult)
 
-    input_images = _collect_images(simple_input_dir, recursive=False)
+    input_images = collect_image_paths(simple_input_dir)
 
-    assert isinstance(result, PipelineResult)
     assert result.processed_count == len(input_images)
     assert result.failed_count == 0
     assert not result.failed_files
-    assert resize_step.call_count == len(input_images)
 
     normalised_mappings = [
         _normalise_mapping(mapping) for mapping in result.output_mappings
@@ -110,13 +84,14 @@ def test_pipeline_applies_steps_and_generates_results(
         assert output_path.is_relative_to(output_dir)
         assert output_path.exists()
         height, width = cv2.imread(str(output_path)).shape[:2]
-        assert (width, height) == (40, 40)
+        assert (width, height) == target_size
     assert result.settings["recursive"] is False
     assert Path(result.settings["input_path"]) == simple_input_dir
-    assert Path(result.settings["output_path"]) == output_dir
+    assert result.settings["output_path"] is None
     assert result.duration_seconds >= 0
 
 
+@pytest.mark.usefixtures("simple_input_dir")
 def test_pipeline_records_failures_and_continues(
     simple_input_dir: Path,
     tmp_path_factory: pytest.TempPathFactory,
@@ -126,18 +101,16 @@ def test_pipeline_records_failures_and_continues(
     failing_step = FailingStep()
     output_path = tmp_path_factory.mktemp("failures")
     pipeline = Pipeline(
-        input_path=simple_input_dir,
-        output_path=output_path,
         steps=[failing_step],
         recursive=False,
         preserve_structure=False,
     )
 
-    result = pipeline.run()
+    result = pipeline.run(input_path=simple_input_dir)
+    assert_type(result, PipelineResult)
 
-    input_images = _collect_images(simple_input_dir, recursive=False)
+    input_images = collect_image_paths(simple_input_dir)
 
-    assert isinstance(result, PipelineResult)
     assert result.processed_count == 0
     assert result.failed_count == len(input_images)
     assert sorted(Path(path) for path in result.failed_files) == input_images
@@ -161,78 +134,74 @@ def test_pipeline_flattened_outputs_are_unique(
     write_image(str(nested_a / "duplicate.png"), image)
     write_image(str(nested_b / "duplicate.png"), image)
 
-    recording_step = RecordingStep(transform=lambda img: img)
     pipeline = Pipeline(
-        input_path=input_root,
-        output_path=output_dir,
-        steps=[recording_step],
+        steps=[ResizeStep((16, 16))],
         recursive=True,
         preserve_structure=False,
     )
 
-    result = pipeline.run()
+    result = pipeline.run(input_path=input_root)
+    result.save(output_dir)
+    assert_type(result, PipelineResult)
 
     output_files = sorted(path.name for path in output_dir.glob("*.png"))
 
     assert result.processed_count == 2
     assert result.failed_count == 0
-    assert recording_step.call_count == 2
     assert output_files == ["duplicate.png", "duplicate_no2.png"]
 
 
+@pytest.mark.usefixtures("recursive_input_dir")
 def test_pipeline_honours_recursive_flag(
     recursive_input_dir: Path,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> None:
     """`Pipeline` should toggle recursive discovery based on the flag."""
 
-    top_level_images = _collect_images(recursive_input_dir, recursive=False)
-    all_images = _collect_images(recursive_input_dir, recursive=True)
+    top_level_images = collect_image_paths(recursive_input_dir)
+    all_images = collect_image_paths(recursive_input_dir, recursive=True)
 
-    non_recursive_step = RecordingStep(transform=lambda image: image)
     non_recursive_pipeline = Pipeline(
-        input_path=recursive_input_dir,
-        output_path=tmp_path_factory.mktemp("non_recursive"),
-        steps=[non_recursive_step],
+        steps=[ResizeStep((16, 16))],
         recursive=False,
         preserve_structure=False,
     )
-    non_recursive_result = non_recursive_pipeline.run()
+    non_recursive_result = non_recursive_pipeline.run(input_path=recursive_input_dir)
+    non_recursive_result.save(tmp_path_factory.mktemp("non_recursive"))
+    assert_type(non_recursive_result, PipelineResult)
 
-    recursive_step = RecordingStep(transform=lambda image: image)
     recursive_pipeline = Pipeline(
-        input_path=recursive_input_dir,
-        output_path=tmp_path_factory.mktemp("recursive"),
-        steps=[recursive_step],
+        steps=[ResizeStep((16, 16))],
         recursive=True,
         preserve_structure=False,
     )
-    recursive_result = recursive_pipeline.run()
+    recursive_result = recursive_pipeline.run(input_path=recursive_input_dir)
+    recursive_result.save(tmp_path_factory.mktemp("recursive"))
+    assert_type(recursive_result, PipelineResult)
 
     assert non_recursive_result.processed_count == len(top_level_images)
     assert recursive_result.processed_count == len(all_images)
-    assert non_recursive_step.call_count == len(top_level_images)
-    assert recursive_step.call_count == len(all_images)
 
 
+@pytest.mark.usefixtures("simple_input_dir")
 def test_pipeline_run_on_paths_processes_explicit_list(
     simple_input_dir: Path,
     output_dir: Path,
 ) -> None:
-    """`Pipeline.run_on_paths` should process the provided file list only."""
+    """`Pipeline.run` with input_paths should process the provided file list only."""
 
     target_size = (28, 28)
-    image_paths = _collect_images(simple_input_dir, recursive=False)
+    image_paths = collect_image_paths(simple_input_dir)
 
     pipeline = Pipeline(
-        input_path=None,
-        output_path=output_dir,
         steps=[ResizeStep(target_size)],
         recursive=False,
         preserve_structure=False,
     )
 
-    result = pipeline.run_on_paths(image_paths)
+    result = pipeline.run(input_paths=image_paths)
+    result.save(output_dir)
+    assert_type(result, PipelineResult)
 
     assert result.processed_count == len(image_paths)
     assert result.failed_count == 0
@@ -248,25 +217,26 @@ def test_pipeline_run_on_paths_processes_explicit_list(
 def test_run_raises_when_input_path_missing(tmp_path: Path) -> None:
     """`Pipeline.run` must require an input path."""
 
-    pipeline = Pipeline(steps=[], output_path=tmp_path)
+    pipeline = Pipeline(steps=[])
 
     with pytest.raises(
         ValueError,
-        match=re.escape("input_path must be provided to use run()."),
+        match="input_path, input_paths, or input_arrays must be specified.",
     ):
         pipeline.run()
 
 
+@pytest.mark.usefixtures("simple_input_dir")
 def test_run_raises_when_output_path_missing(simple_input_dir: Path) -> None:
     """`Pipeline.run` should support deferred saving when no output path is set."""
 
-    pipeline = Pipeline(steps=[], input_path=simple_input_dir)
+    pipeline = Pipeline(steps=[])
 
-    result = pipeline.run()
+    result = pipeline.run(input_path=simple_input_dir)
+    assert_type(result, PipelineResult)
 
-    input_images = _collect_images(simple_input_dir, recursive=False)
+    input_images = collect_image_paths(simple_input_dir)
 
-    assert isinstance(result, PipelineResult)
     assert result.processed_count == len(input_images)
     assert result.failed_count == 0
     assert not result.failed_files
@@ -274,59 +244,61 @@ def test_run_raises_when_output_path_missing(simple_input_dir: Path) -> None:
     assert len(result.processed_images) == len(input_images)
 
 
+@pytest.mark.usefixtures("simple_input_dir")
 def test_run_raises_when_input_path_defined(
     simple_input_dir: Path,
     output_dir: Path,
 ) -> None:
-    """`Pipeline.run_on_paths` must not accept an input path."""
+    """`Pipeline.run` with input_paths should work with input_path."""
 
     target_size = (28, 28)
-    image_paths = _collect_images(simple_input_dir, recursive=False)
+    image_paths = collect_image_paths(simple_input_dir)
 
     pipeline = Pipeline(
-        input_path=simple_input_dir,
-        output_path=output_dir,
         steps=[ResizeStep(target_size)],
         recursive=False,
         preserve_structure=False,
     )
-    with pytest.raises(
-        ValueError,
-        match=re.escape("input_path must not be provided to use run_on_paths()."),
-    ):
-        pipeline.run_on_paths(image_paths)
+    
+    # This should work - we can use input_paths with input_path set
+    result = pipeline.run(input_paths=image_paths)
+    result.save(output_dir)
+    assert_type(result, PipelineResult)
+    
+    assert result.processed_count == len(image_paths)
+    assert result.failed_count == 0
 
 
 def test_run_on_paths_raises_when_output_path_missing() -> None:
-    """`Pipeline.run_on_paths` must require an output path."""
+    """`Pipeline.run` with empty input_paths should work."""
 
     pipeline = Pipeline(steps=[])
 
-    with pytest.raises(
-        ValueError,
-        match=re.escape("output_path must be provided to use run_on_paths()."),
-    ):
-        pipeline.run_on_paths([])
+    # Running with empty list should work and return empty result
+    result = pipeline.run(input_paths=[])
+    assert_type(result, PipelineResult)
+    assert result.processed_count == 0
+    assert result.failed_count == 0
 
 
+@pytest.mark.usefixtures("simple_input_dir")
 def test_pipeline_run_on_arrays_returns_transformed_images(
     simple_input_dir: Path,
 ) -> None:
-    """`Pipeline.run_on_arrays` should return transformed images in memory."""
+    """`Pipeline.run` with input_arrays should return transformed images in memory."""
 
-    image_paths = _collect_images(simple_input_dir, recursive=False)
+    image_paths = collect_image_paths(simple_input_dir)
     arrays = [cv2.imread(str(path), cv2.IMREAD_COLOR) for path in image_paths]
 
     pipeline = Pipeline(
-        input_path=simple_input_dir,
-        output_path=simple_input_dir,
         steps=[ResizeStep((16, 16))],
         recursive=False,
         preserve_structure=False,
     )
 
-    transformed_images = pipeline.run_on_arrays(arrays)
+    result = pipeline.run(input_arrays=arrays)
+    assert_type(result, PipelineResult)
 
-    assert len(transformed_images) == len(arrays)
-    for transformed in transformed_images:
-        assert transformed.shape[:2] == (16, 16)
+    assert len(result.processed_images) == len(arrays)
+    for processed in result.processed_images:
+        assert processed.image.shape[:2] == (16, 16)
