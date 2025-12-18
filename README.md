@@ -36,22 +36,19 @@ import flowimds as fi
 # Define the pipeline
 # Args:
 #   steps: sequence of pipeline steps
-#   input_path: input directory path
-#   output_path: output directory path
 #   recursive: whether to traverse subdirectories (default: False)
-#   preserve_structure: whether to mirror the input tree (default: True)
+#   preserve_structure: whether to mirror the input tree when saving (default: True)
 pipeline = fi.Pipeline(
     steps=[
         fi.ResizeStep((128, 128)),
         fi.GrayscaleStep(),
     ],
-    input_path="samples/input",
-    output_path="samples/output",
     recursive=True,
     preserve_structure=True,
 )
 
-result = pipeline.run()
+result = pipeline.run(input_path="samples/input")
+result.save("samples/output")
 
 # Inspect the result
 # Fields:
@@ -146,6 +143,52 @@ uv run python scripts/generate_test_data.py
 # Run tests
 uv run pytest
 ```
+
+### Docker powered environment
+
+You can standardize the development environment inside containers built from `docker/Dockerfile`. Dependencies are installed with `uv sync --all-extras --dev` during build, so any `uv` command (e.g., `uv run pytest`) is reproducible.
+
+Two typical workflows exist:
+
+1. **Run the suite once in a disposable container** (container exits when tests finish):
+
+   ```bash
+   docker compose -f docker/docker-compose.yml up --build
+   ```
+
+2. **Open an interactive shell for iterative work** (recommended while developing):
+
+   ```bash
+   # Build the image (no-op if cached)
+   docker compose -f docker/docker-compose.yml build
+
+   # Start an interactive container with a clean shell
+   docker compose -f docker/docker-compose.yml run --rm app bash
+
+   # Inside the container (already at /app)
+   uv sync --all-extras --dev   # install deps into the mounted .venv
+   uv run pytest
+   uv run black --check .
+   ```
+
+`docker compose exec app ...` works only while a container started with `up` is still running. Because the default command runs `uv run pytest` and exits immediately, use `run --rm app bash` whenever you need an interactive session.
+
+### Dev Container
+
+A VS Code Dev Container configuration is provided under `.devcontainer/`. If you use the **Dev Containers** extension, you can open this repository in a container and work inside a reproducible Docker-based development environment.
+
+#### Using with VS Code
+
+1. Install and start Docker.
+2. Install the "Dev Containers" extension in VS Code (if you do not have it yet).
+3. Open this repository in VS Code and run "Dev Containers: Reopen in Container" from the command palette.
+4. Inside the container, install dependencies and run the usual development commands:
+
+     ```bash
+     uv sync --all-extras --dev
+     uv run pytest
+     uv run black --check .
+     ```
 
 ## 📄 License
 

@@ -31,14 +31,6 @@ include = ["flowimds", "flowimds.*"]
 [tool.setuptools.package-data]
 "flowimds" = ["py.typed"]
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=8.4.2",
-    "ruff>=0.14.3",
-    "black>=24.10.0",
-    "build>=1.2.2",
-]
-
 [project.urls]
 Homepage = "https://github.com/mori-318/flowimds"
 Repository = "https://github.com/mori-318/flowimds"
@@ -47,6 +39,17 @@ Documentation = "https://github.com/mori-318/flowimds#readme"
 [build-system]
 requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.19.1",
+    "pip-audit>=2.10.0",
+    "pytest>=8.4.2",
+    "ruff>=0.14.3",
+    "black>=24.10.0",
+    "build>=1.2.2",
+    "types-tqdm>=4.67.0.20240129",
+]
 
 [tool.ruff]
 exclude = [
@@ -83,4 +86,8 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "W"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["flowimds", "tests", "scripts"]
 

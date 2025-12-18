@@ -1,16 +1,17 @@
 """Image I/O helper functions."""
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Iterable, Tuple
 
 import cv2
 import numpy as np
+import numpy.typing as npt
 
 
 def read_image(
     path: str,
     flags: int = cv2.IMREAD_COLOR,
-    dtype: np.dtype = np.uint8,
+    dtype: npt.DTypeLike = np.uint8,
 ) -> np.ndarray | None:
     """Read an image from the given path.
 
@@ -37,7 +38,7 @@ def read_image(
 def write_image(
     path: str,
     image: np.ndarray,
-    params: Iterable[Tuple[int, int]] | None = None,
+    params: Sequence[int] | None = None,
 ) -> bool:
     """Write an image to the given path.
 

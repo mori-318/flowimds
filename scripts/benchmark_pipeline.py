@@ -1,7 +1,5 @@
 """Benchmark tools for measuring pipeline throughput."""
 
-from __future__ import annotations
-
 import argparse
 import math
 import re
@@ -214,7 +212,7 @@ def _destination_path(
         try:
             relative = source.relative_to(input_root)
         except ValueError:
-            relative = source.name
+            relative = Path(source.name)
         destination = output_root / relative
     else:
         destination = output_root / source.name
@@ -318,14 +316,16 @@ def _run_pipeline_sequential(
 
     pipeline = Pipeline(
         steps=list(steps),
-        input_path=input_dir,
-        output_path=output_dir,
         recursive=recursive,
         preserve_structure=preserve_structure,
+        worker_count=1,
         log=True,
     )
-    result = pipeline.run()
-    return result.duration_seconds
+
+    start = perf_counter()
+    result = pipeline.run(input_path=input_dir)
+    result.save(output_dir)
+    return perf_counter() - start
 
 
 def _run_pipeline_parallel(
@@ -364,21 +364,17 @@ def _run_pipeline_parallel(
         return 0.0
 
     worker_count = _effective_workers(workers)
+    pipeline = Pipeline(
+        steps=list(steps_factory()),
+        recursive=recursive,
+        preserve_structure=preserve_structure,
+        worker_count=worker_count if worker_count > 0 else None,
+        log=False,
+    )
+
     start = perf_counter()
-    with ThreadPoolExecutor(max_workers=worker_count) as executor:
-        futures = [
-            executor.submit(
-                _process_single_image,
-                path,
-                steps_factory=steps_factory,
-                input_root=input_dir,
-                output_root=output_dir,
-                preserve_structure=preserve_structure,
-            )
-            for path in image_paths
-        ]
-        for future in futures:
-            future.result()
+    result = pipeline.run(input_paths=image_paths)
+    result.save(output_dir)
     return perf_counter() - start
 
 
@@ -420,39 +416,43 @@ def _run_definition(
 
     new_pipeline_seq = Pipeline(
         steps=definition.build_steps(),
-        input_path=dataset_dir,
-        output_path=new_sequential_dir,
         recursive=definition.recursive,
         preserve_structure=definition.preserve_structure,
         worker_count=1,
         log=True,
     )
-    new_seq_result = new_pipeline_seq.run()
-    new_seq_seconds = new_seq_result.duration_seconds
+    new_seq_start = perf_counter()
+    new_seq_result = new_pipeline_seq.run(input_path=dataset_dir)
+    new_seq_result.save(new_sequential_dir)
+    new_seq_seconds = perf_counter() - new_seq_start
 
     new_pipeline_parallel_logged = Pipeline(
         steps=definition.build_steps(),
-        input_path=dataset_dir,
-        output_path=parallel_logged_dir,
         recursive=definition.recursive,
         preserve_structure=definition.preserve_structure,
         worker_count=workers if workers > 0 else None,
         log=True,
     )
-    new_parallel_logged_result = new_pipeline_parallel_logged.run()
-    new_parallel_logged_seconds = new_parallel_logged_result.duration_seconds
+    new_parallel_logged_start = perf_counter()
+    new_parallel_logged_result = new_pipeline_parallel_logged.run(
+        input_path=dataset_dir,
+    )
+    new_parallel_logged_result.save(parallel_logged_dir)
+    new_parallel_logged_seconds = perf_counter() - new_parallel_logged_start
 
     new_pipeline_parallel_quiet = Pipeline(
         steps=definition.build_steps(),
-        input_path=dataset_dir,
-        output_path=parallel_quiet_dir,
         recursive=definition.recursive,
         preserve_structure=definition.preserve_structure,
         worker_count=workers if workers > 0 else None,
         log=False,
     )
-    new_parallel_quiet_result = new_pipeline_parallel_quiet.run()
-    new_parallel_quiet_seconds = new_parallel_quiet_result.duration_seconds
+    new_parallel_quiet_start = perf_counter()
+    new_parallel_quiet_result = new_pipeline_parallel_quiet.run(
+        input_path=dataset_dir,
+    )
+    new_parallel_quiet_result.save(parallel_quiet_dir)
+    new_parallel_quiet_seconds = perf_counter() - new_parallel_quiet_start
     return ComparisonResult(
         label=definition.label,
         legacy_seconds=legacy_seconds,
@@ -509,6 +509,26 @@ def main() -> None:
             notes="Resize to 256px square, convert to grayscale.",
         ),
         BenchmarkDefinition(
+            label="Resize only",
+            steps_factory=lambda: [ResizeStep((256, 256))],
+            notes="Single-step baseline for resizing.",
+        ),
+        BenchmarkDefinition(
+            label="Grayscale only",
+            steps_factory=lambda: [GrayscaleStep()],
+            notes="Single-step baseline for grayscale conversion.",
+        ),
+        BenchmarkDefinition(
+            label="Binarize only",
+            steps_factory=lambda: [BinarizeStep()],
+            notes="Single-step baseline for binarization (Otsu).",
+        ),
+        BenchmarkDefinition(
+            label="Denoise only",
+            steps_factory=lambda: [DenoiseStep(mode="median", kernel_size=5)],
+            notes="Single-step baseline for median denoise.",
+        ),
+        BenchmarkDefinition(
             label="Resize → Denoise → Rotate",
             steps_factory=lambda: [
                 ResizeStep((256, 256)),
@@ -518,7 +538,7 @@ def main() -> None:
             notes="Median denoise and 15° rotation.",
         ),
         BenchmarkDefinition(
-            label="Custom composite flow",
+            label="Resize → Grayscale → Binarize → Rotate -30°",
             steps_factory=lambda: [
                 ResizeStep((192, 192)),
                 GrayscaleStep(),

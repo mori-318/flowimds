@@ -5,8 +5,6 @@ synthetic images. Run it whenever the fixture assets need to be recreated
 (e.g., after a clean checkout).
 """
 
-from __future__ import annotations
-
 from pathlib import Path
 from typing import Iterable, Sequence
 

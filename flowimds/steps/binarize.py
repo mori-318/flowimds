@@ -1,8 +1,6 @@
 """Binarisation step implementation."""
 
-from __future__ import annotations
-
-from typing import Literal
+from typing import Literal, cast
 
 import cv2
 import numpy as np
@@ -23,7 +21,7 @@ class BinarizeStep(PipelineStep):
     def __init__(
         self,
         *,
-        mode: BinarizeMode = "otsu",
+        mode: str = "otsu",
         threshold: int | None = None,
         max_value: int = 255,
     ) -> None:
@@ -41,9 +39,10 @@ class BinarizeStep(PipelineStep):
         normalised_mode = mode.lower()
         if normalised_mode not in {"otsu", "fixed"}:
             raise ValueError("mode must be either 'otsu' or 'fixed'")
-        self._mode = normalised_mode
+        self._mode: BinarizeMode = cast(BinarizeMode, normalised_mode)
 
         self._max_value = validate_positive_int(max_value, argument_name="max_value")
+        self._threshold: int | None
 
         if self._mode == "fixed":
             if threshold is None:
@@ -67,14 +66,17 @@ class BinarizeStep(PipelineStep):
         if self._mode == "otsu":
             _, result = cv2.threshold(
                 grayscale,
-                0,
+                0.0,
                 self._max_value,
                 cv2.THRESH_BINARY + cv2.THRESH_OTSU,
             )
         else:
+            if self._threshold is None:  # pragma: no cover - defensive
+                msg = "threshold must be configured for fixed mode"
+                raise ValueError(msg)
             _, result = cv2.threshold(
                 grayscale,
-                self._threshold,
+                float(self._threshold),
                 self._max_value,
                 cv2.THRESH_BINARY,
             )

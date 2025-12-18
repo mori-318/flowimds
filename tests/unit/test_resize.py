@@ -1,5 +1,7 @@
-import pytest
+from typing import Any
+
 import numpy as np
+import pytest
 
 from flowimds.steps import ResizeStep
 
@@ -51,7 +53,7 @@ def test_resize_preserves_dtype_for_grayscale_images() -> None:
         (100, "tall"),
     ],
 )
-def test_resize_with_invalid_size(size: tuple[int, ...]) -> None:
+def test_resize_with_invalid_size(size: Any) -> None:
     """Ensure ``ResizeStep`` rejects invalid size definitions."""
 
     with pytest.raises(ValueError):

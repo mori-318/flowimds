@@ -31,6 +31,7 @@ def test_write_image_handles_unicode_paths(
 
     sample_path: Path = request.getfixturevalue(fixture_name)
     image = read_image(str(sample_path))
+    assert image is not None
     destination = request.getfixturevalue("output_dir") / "出力/結果_日本語ファイル.png"
 
     succeeded = write_image(str(destination), image)

@@ -33,7 +33,7 @@ jobs:
       - name: Sync dependencies
         run: |
           if [ -f pyproject.toml ]; then
-            uv sync --all-extras --dev
+            uv sync --group dev
           else
             echo "pyproject.toml not found; skipping uv sync"
           fi
@@ -42,5 +42,12 @@ jobs:
         run: |
           uv run ruff check .
 
+      - name: Run type checks
+        run: |
+          uv run mypy
+
       - name: Run tests
         run: uv run pytest
+
+      - name: Run pip-audit
+        run: uv run pip-audit
