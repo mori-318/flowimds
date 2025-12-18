@@ -14,3 +14,14 @@ flowimds is the open-source image-processing pipeline library that provides reus
 - `.devcontainer/` – Development container definition (Dockerfile and devcontainer.json) for a reproducible VS Code / Codespaces environment.
 - `.github/` – Issue/PR templates plus CI workflows that run publishing and validation pipelines.
 
+## Development Flow (TDD)
+
+1. Start by writing or updating a failing test (unit or integration) that captures the desired behavior.
+2. Run `uv run pytest` to confirm the test fails for the right reason.
+3. Implement the minimal production code to satisfy the new test while keeping style guides in mind.
+4. Run the same commands CI executes (`uv run ruff check .`, `uv run mypy`, `uv run pytest`, `uv run pip-audit`) and include the formatter (`uv run black --check .`) so local results match pipeline expectations.
+5. Once all checks succeed, commit and push using the semantic message format below.
+
+## Commit Messages
+
+- Use semantic commit messages written in English, keeping the imperative present tense (e.g., `feat: add grayscale step`, `fix: handle empty pipeline config`).
