@@ -1,7 +1,5 @@
 """Protocol and helper utilities for pipeline steps."""
 
-from __future__ import annotations
-
 from typing import Protocol, Sequence
 
 import cv2
