@@ -258,15 +258,20 @@ def test_run_raises_when_input_path_missing(tmp_path: Path) -> None:
 
 
 def test_run_raises_when_output_path_missing(simple_input_dir: Path) -> None:
-    """`Pipeline.run` must require an output path."""
+    """`Pipeline.run` should support deferred saving when no output path is set."""
 
     pipeline = Pipeline(steps=[], input_path=simple_input_dir)
 
-    with pytest.raises(
-        ValueError,
-        match=re.escape("output_path must be provided to use run()."),
-    ):
-        pipeline.run()
+    result = pipeline.run()
+
+    input_images = _collect_images(simple_input_dir, recursive=False)
+
+    assert isinstance(result, PipelineResult)
+    assert result.processed_count == len(input_images)
+    assert result.failed_count == 0
+    assert not result.failed_files
+    assert result.output_mappings == []
+    assert len(result.processed_images) == len(input_images)
 
 
 def test_run_raises_when_input_path_defined(
