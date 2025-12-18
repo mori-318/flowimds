@@ -53,7 +53,6 @@ class PipelineResult:
     processed_count: int
     failed_count: int
     failed_files: list[str]
-    output_mappings: list[OutputMapping]
     duration_seconds: float
     settings: PipelineSettings
 
