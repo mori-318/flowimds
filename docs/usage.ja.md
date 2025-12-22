@@ -57,7 +57,7 @@ for mapping in result.output_mappings:
 
 `input_paths` は対象ファイルを事前に把握している場合や、複数のディレクトリにまたがる入力をまとめて処理したい場合に有効です。`run()` を呼ぶたびに `input_path` / `input_paths` のどちらかを指定でき、引数で渡した方が優先されます。
 
-### `run_on_arrays` でメモリ内だけで完結させる
+### `input_arrays` でメモリ内だけで完結させる
 
 ```python
 import flowimds as fi
@@ -70,7 +70,7 @@ def brighten(image: np.ndarray) -> np.ndarray:
     return np.clip(image + 40, 0, 255).astype(image.dtype)
 
 pipeline = fi.Pipeline(
-    step = fi.GrayscaleStep(),
+    steps=[fi.GrayscaleStep(), brighten],
 )
 
 result = pipeline.run(input_arrays=images)
@@ -79,7 +79,7 @@ print(f"Got {len(result.processed_images)} transformed images")
 
 `input_arrays` はファイルシステムを使わずに NumPy 配列だけを処理します。入力イテラブルの各要素が NumPy 配列かどうかを検証し、変換結果は `PipelineResult.processed_images` に蓄えられます。必要に応じて `result.save(...)` で任意のディレクトリへ書き出してください。
 
-`input_arrays` だけを利用する場合、パイプラインに `input_path` / `output_path` を設定する必要はありません。後から `run(input_path=...)` や `run(input_paths=...)` を呼ぶときに、必要なパスをその都度引数で渡せば十分です。
+`input_arrays` だけを利用する場合、`Pipeline` の初期化時にパスを設定する必要はありません。後から `run(input_path=...)` や `run(input_paths=...)` を呼ぶときは、必要な入力をその都度 `run(...)` に渡してください。ファイルへ保存したい場合は `result.save(output_dir)` を呼びます。
 
 ### `PipelineResult` を活用する
 
@@ -94,7 +94,8 @@ def summarise(result: fi.PipelineResult) -> None:
     for mapping in result.output_mappings:
         print(f"Saved {mapping.input_path.name} to {mapping.output_path}")
 
-result = pipeline.run()
+import numpy as np
+result = pipeline.run(input_arrays=[np.zeros((1, 1, 3), dtype=np.uint8)])
 summarise(result)
 ```
 
@@ -107,7 +108,7 @@ summarise(result)
 画像の処理が失敗した場合、`result.failed_files` に詳細なエラー情報と共に記録されます：
 
 ```python
-result = pipeline.run()
+result = pipeline.run(input_path="/path/to/input")
 
 if result.failed_count > 0:
     print(f"⚠️  {result.failed_count} 枚の画像が失敗しました:")
@@ -119,9 +120,9 @@ if result.failed_count > 0:
         print("よりシンプルなパイプラインでリトライ中...")
         retry_pipeline = fi.Pipeline(
             steps=[fi.ResizeStep((256, 256))],  # 最小限の処理
-            output_path="retries",
         )
-        retry_result = retry_pipeline.run_on_paths(result.failed_files)
+        retry_result = retry_pipeline.run(input_paths=result.failed_files)
+        retry_result.save("retries")
         print(f"回復: {retry_result.processed_count}/{result.failed_count}")
 ```
 
@@ -186,26 +187,25 @@ def robust_pipeline_processing(input_path, output_path, max_retries=2):
                     fi.DenoiseStep(mode="median", kernel_size=5),
                     fi.BinarizeStep(mode="otsu"),
                 ],
-                output_path=output_path,
                 log=True,
             )
         elif complexity == "simple":
             return fi.Pipeline(
                 steps=[fi.ResizeStep((256, 256)), fi.GrayscaleStep()],
-                output_path=output_path,
                 log=True,
             )
         else:  # minimal
             return fi.Pipeline(
                 steps=[fi.ResizeStep((128, 128))],
-                output_path=output_path,
                 log=True,
             )
 
     # まず完全なパイプラインを試行
-    result = create_pipeline("full").run()
+    result = create_pipeline("full").run(input_path=input_path)
+    result.save(output_path)
 
     # 失敗した画像をよりシンプルなパイプラインでリトライ
+    initial_failed_count = len(result.failed_files)
     failed_files = result.failed_files.copy()
     retry_attempts = 0
 
@@ -214,10 +214,12 @@ def robust_pipeline_processing(input_path, output_path, max_retries=2):
         complexity = ["simple", "minimal"][retry_attempts - 1]
 
         print(f"リトライ {retry_attempts}/{max_retries}: {complexity} パイプライン...")
-        retry_result = create_pipeline(complexity).run_on_paths(failed_files)
+        retry_result = create_pipeline(complexity).run(input_paths=failed_files)
+        retry_result.save(output_path)
 
         # 失敗ファイルリストを更新
-        newly_failed = set(failed_files) - set(retry_result.output_mappings)
+        recovered = {str(mapping.input_path) for mapping in retry_result.output_mappings}
+        newly_failed = set(failed_files) - recovered
         failed_files = list(newly_failed)
 
         print(f"  回復: {retry_result.processed_count}, 依然として失敗: {len(failed_files)}")
@@ -225,7 +227,7 @@ def robust_pipeline_processing(input_path, output_path, max_retries=2):
     # 最終サマリー
     print(f"\n最終結果:")
     print(f"  正常に処理: {result.processed_count}")
-    print(f"  リトライで回復: {sum(1 for _ in result.output_mappings) - result.processed_count}")
+    print(f"  リトライで回復: {initial_failed_count - len(failed_files)}")
     print(f"  恒久的に失敗: {len(failed_files)}")
 
     if failed_files:
@@ -280,10 +282,12 @@ def debug_failed_images(failed_files):
 | 設定項目 | 型 | 説明 |
 | --- | --- | --- |
 | `steps` | `PipelineStep` の反復可能オブジェクト | 各画像に順番に適用される変換のリスト。`apply(image)` を持つオブジェクトなら自作ステップも使えます。 |
-| `input_path` | `str` または `Path`（任意） | `run` 使用時に画像を探索するディレクトリ。`run_on_arrays` だけ使う場合は省略可能です。 |
-| `output_path` | `str` または `Path`（任意） | 変換後のファイルを書き出すディレクトリ。`run` / `run_on_paths` を使うときは必須ですが、`run_on_arrays` のみなら省略できます。 |
+| `input_path` | `str` または `Path`（任意） | `run(input_path=...)` で画像を探索するディレクトリ。 |
+| `input_paths` | `Iterable[str | Path]`（任意） | `run(input_paths=...)` で処理対象のファイルパスを明示指定します。 |
+| `input_arrays` | `Iterable[np.ndarray]`（任意） | `run(input_arrays=...)` でNumPy配列を直接処理します。 |
+| `output_dir` | `str` または `Path`（任意） | `PipelineResult.save(output_dir)` に渡す保存先ディレクトリ。 |
 | `recursive` | `bool` | 画像収集時にサブディレクトリも走査するかどうか。 |
-| `preserve_structure` | `bool` | `True` の場合、入力の階層構造を `output_path` 配下に再現します。`False` ならすべて直下に保存されます。 |
+| `preserve_structure` | `bool` | `True` の場合、入力の階層構造を `output_dir` 配下に再現します。`False` ならすべて直下に保存されます。 |
 | `worker_count` | `int`（任意） | 並列処理に使用する最大ワーカースレッド数。`None` でCPUコアの約70%、`1` で逐次処理、`0` で全コア使用。 |
 | `log` | `bool` | 処理中のプログレスバーと情報ログを有効にします。 |
 
@@ -302,10 +306,11 @@ pipeline = fi.Pipeline(
         fi.ResizeStep((512, 512)),
         fi.GrayscaleStep(),
     ],
-    input_path="input",
-    output_path="output",
     worker_count=8,  # 8つのワーカースレッドを使用
 )
+
+result = pipeline.run(input_path="input")
+result.save("output")
 ```
 
 **ワーカー数のガイドライン**：
@@ -328,12 +333,11 @@ pipeline = fi.Pipeline(
         fi.ResizeStep((256, 256)),
         fi.DenoiseStep(),
     ],
-    input_path="large_dataset",
-    output_path="processed",
     log=True,  # プログレスバーとログを有効化
 )
 
-result = pipeline.run()
+result = pipeline.run(input_path="large_dataset")
+result.save("processed")
 ```
 
 `log=True` の場合、以下が表示されます：
@@ -361,10 +365,10 @@ def process_in_batches(input_dir, output_dir, batch_size=100):
         batch = all_images[i:i + batch_size]
         pipeline = fi.Pipeline(
             steps=[fi.ResizeStep((512, 512))],
-            output_path=output_dir,
             worker_count=4,  # メモリに保守的な設定
         )
-        result = pipeline.run_on_paths(batch)
+        result = pipeline.run(input_paths=batch)
+        result.save(output_dir)
         print(f"バッチ {i//batch_size + 1}: {result.processed_count} 枚処理済み")
 ```
 
@@ -431,7 +435,7 @@ def process_in_batches(input_dir, output_dir, batch_size=100):
 
 ```python
 pipeline = fi.Pipeline(..., log=True)
-result = pipeline.run()
+result = pipeline.run(input_path="/path/to/input")
 ```
 
 4. 画像がサブディレクトリにある場合は `recursive=True` を試す
@@ -457,7 +461,7 @@ print(f"サポート対象画像 {len(images)} 枚を発見")
 **問題**: パイプラインは完了するが出力ファイルが表示されない
 
 **解決策**:
-1. `output_path` ディレクトリが存在するか確認（自動作成）
+1. `PipelineResult.save(output_dir)` で指定したディレクトリが存在するか確認（自動作成）
 2. 出力ディレクトリの書き込み権限を確認
 3. 特定の失敗について `result.failed_files` を検査
 4. 出力マッピングを確認:
@@ -489,13 +493,12 @@ for mapping in result.output_mappings:
 # 衝突処理のデモ
 pipeline = fi.Pipeline(
     steps=[fi.GrayscaleStep()],
-    input_path="input",  # 含む: folder1/image.png, folder2/image.png
-    output_path="output",
     preserve_structure=False,  # 出力をフラット化
     log=True,
 )
 
-result = pipeline.run()
+result = pipeline.run(input_path="input")
+result.save("output")
 for mapping in result.output_mappings:
     print(f"{mapping.input_path} -> {mapping.output_path}")
 # 出力:
@@ -520,7 +523,7 @@ def profile_pipeline(pipeline):
     memory_before = psutil.virtual_memory().percent
 
     start_time = time.time()
-    result = pipeline.run()
+    result = pipeline.run(input_path="/path/to/input")
     end_time = time.time()
 
     cpu_after = psutil.cpu_percent()
@@ -555,14 +558,13 @@ def memory_safe_processing(input_path, output_path):
     # 保守的な設定で開始
     pipeline = fi.Pipeline(
         steps=[fi.ResizeStep((512, 512))],
-        input_path=input_path,
-        output_path=output_path,
         worker_count=1,  # 逐次処理
         log=True,
     )
 
     try:
-        result = pipeline.run()
+        result = pipeline.run(input_path=input_path)
+        result.save(output_path)
         return result
     except MemoryError:
         print("メモリエラーが発生、バッチ処理を試行中...")
@@ -577,10 +579,10 @@ def memory_safe_processing(input_path, output_path):
             batch = all_images[i:i + batch_size]
             batch_pipeline = fi.Pipeline(
                 steps=[fi.ResizeStep((512, 512))],
-                output_path=output_path,
                 worker_count=1,
             )
-            batch_result = batch_pipeline.run_on_paths(batch)
+            batch_result = batch_pipeline.run(input_paths=batch)
+            batch_result.save(output_path)
             total_processed += batch_result.processed_count
             print(f"バッチ {i//batch_size + 1}: {batch_result.processed_count} 枚処理済み")
 
@@ -602,13 +604,12 @@ def memory_safe_processing(input_path, output_path):
 # 日本語ファイル名は正しく動作
 pipeline = fi.Pipeline(
     steps=[fi.ResizeStep((256, 256))],
-    input_path="写真/入力",  # 日本語ディレクトリ名
-    output_path="写真/出力",  # 日本語ディレクトリ名
     recursive=True,
     log=True,
 )
 
-result = pipeline.run()
+result = pipeline.run(input_path="写真/入力")
+result.save("写真/出力")
 print(f"日本語パスで {result.processed_count} 枚の画像を処理")
 ```
 
@@ -693,13 +694,12 @@ def resize_for_web(input_dir, output_dir, sizes=[(1920, 1080), (1280, 720), (640
 
         pipeline = fi.Pipeline(
             steps=[fi.ResizeStep((width, height))],
-            input_path=input_dir,
-            output_path=f"{output_dir}/{width}x{height}",
             log=True,
             worker_count=4,
         )
 
-        result = pipeline.run()
+        result = pipeline.run(input_path=input_dir)
+        result.save(f"{output_dir}/{width}x{height}")
         print(f"  完了: {result.processed_count} 枚の画像")
         if result.failed_count > 0:
             print(f"  失敗: {result.failed_count} 枚の画像")
@@ -723,13 +723,12 @@ def document_preprocessing(input_dir, output_dir):
             fi.DenoiseStep(mode="gaussian", kernel_size=5),  # ノイズを除去
             fi.BinarizeStep(mode="otsu"),  # 最適なしきい値処理
         ],
-        input_path=input_dir,
-        output_path=output_dir,
         log=True,
         worker_count=2,  # 大きな文書には保守的な設定
     )
 
-    result = pipeline.run()
+    result = pipeline.run(input_path=input_dir)
+    result.save(output_dir)
     print(f"文書処理完了:")
     print(f"  正常に処理: {result.processed_count}")
     print(f"  失敗: {result.failed_count}")
@@ -759,14 +758,13 @@ def prepare_ml_dataset(input_dir, output_dir, target_size=(224, 224), augment=Fa
 
     pipeline = fi.Pipeline(
         steps=steps,
-        input_path=input_dir,
-        output_path=output_dir,
         preserve_structure=True,  # クラスフォルダを維持
         log=True,
         worker_count=6,
     )
 
-    result = pipeline.run()
+    result = pipeline.run(input_path=input_dir)
+    result.save(output_dir)
 
     # データセット統計を生成
     print(f"データセット準備完了:")
@@ -836,13 +834,12 @@ def create_thumbnails_with_watermark(input_dir, output_dir, thumbnail_size=(300,
             fi.ResizeStep(thumbnail_size),
             WatermarkStep("© My Gallery 2024"),
         ],
-        input_path=input_dir,
-        output_path=output_dir,
         log=True,
         worker_count=8,
     )
 
-    result = pipeline.run()
+    result = pipeline.run(input_path=input_dir)
+    result.save(output_dir)
     print(f"サムネイル生成完了: {result.processed_count} 個のサムネイルを作成")
 
     return result
@@ -889,13 +886,12 @@ def medical_image_preprocessing(input_dir, output_dir):
             ContrastEnhancementStep(clip_limit=3.0),  # コントラストを強調
             fi.DenoiseStep(mode="median", kernel_size=3),  # ノイズを除去
         ],
-        input_path=input_dir,
-        output_path=output_dir,
         log=True,
         worker_count=2,  # 医療画像には保守的な設定
     )
 
-    result = pipeline.run()
+    result = pipeline.run(input_path=input_dir)
+    result.save(output_dir)
     print(f"医療画像前処理完了:")
     print(f"  処理済み: {result.processed_count} 枚の画像")
     print(f"  失敗: {result.failed_count} 枚の画像")
@@ -927,7 +923,6 @@ class ImageProcessorHandler(FileSystemEventHandler):
                 fi.GrayscaleStep(),
                 fi.DenoiseStep(mode="gaussian", kernel_size=3),
             ],
-            output_path=output_dir,
             worker_count=2,
         )
 
@@ -944,7 +939,8 @@ class ImageProcessorHandler(FileSystemEventHandler):
             time.sleep(1)
 
             try:
-                result = self.pipeline.run_on_paths([file_path])
+                result = self.pipeline.run(input_paths=[file_path])
+                result.save(self.output_dir)
                 if result.processed_count > 0:
                     print(f"  ✓ 正常に処理完了")
                 else:
@@ -1039,13 +1035,12 @@ def quality_assessment_pipeline(input_dir, output_dir, good_dir, poor_dir):
             fi.ResizeStep((1024, 768)),
             quality_step,
         ],
-        input_path=input_dir,
-        output_path=output_dir,
         log=True,
         worker_count=4,
     )
 
-    result = pipeline.run()
+    result = pipeline.run(input_path=input_dir)
+    result.save(output_dir)
 
     # 品質スコアを分析
     if quality_step.quality_scores:
@@ -1121,9 +1116,10 @@ pipeline = fi.Pipeline(
         BrightnessStep(brightness_factor=1.2),  # 輝度を20%増加
         fi.GrayscaleStep(),
     ],
-    input_path="input",
-    output_path="output",
 )
+
+result = pipeline.run(input_path="input")
+result.save("output")
 ```
 
 #### 例2: カスタムパラメータ付きガウシアンぼかし
@@ -1314,7 +1310,7 @@ pipeline = fi.Pipeline(
     ],
 )
 
-result = pipeline.run()
+result = pipeline.run(input_arrays=[np.zeros((1, 1, 3), dtype=np.uint8)])
 print(f"使用された最終しきい値: {threshold_step.final_threshold}")
 ```
 
@@ -1479,14 +1475,13 @@ custom_pipeline = fi.Pipeline(
         EdgeDetectionStep(method="canny", low_threshold=50, high_threshold=150),
         HistogramEqualizationStep(use_clahe=True),
     ],
-    input_path="input",
-    output_path="output",
     log=True,
     worker_count=4,
 )
 
 # パイプラインを実行
-result = custom_pipeline.run()
+result = custom_pipeline.run(input_path="input")
+result.save("output")
 print(f"カスタムパイプラインで {result.processed_count} 枚の画像を処理")
 ```
 
@@ -1505,52 +1500,50 @@ class Pipeline:
     def __init__(
         self,
         steps: List[PipelineStep],
-        input_path: Optional[str] = None,
-        output_path: Optional[str] = None,
-        worker_count: int = 4,
-        preserve_structure: bool = True,
+        recursive: bool = False,
+        preserve_structure: bool = False,
+        worker_count: Optional[int] = None,
         log: bool = False,
     ):
         """新しいパイプラインを初期化
 
         Args:
             steps: PipelineStepプロトコルを実装する処理ステップのリスト
-            input_path: 入力画像を含むディレクトリ（オプション）
-            output_path: 出力画像用のディレクトリ（オプション）
-            worker_count: 並列ワーカー数（デフォルト: 4）
-            preserve_structure: ディレクトリ構造を維持するか（デフォルト: True）
+            recursive: サブディレクトリも走査するか（デフォルト: False）
+            preserve_structure: ディレクトリ構造を維持するか（デフォルト: False）
+            worker_count: 並列ワーカー数（デフォルト: None = CPUコアの約70%）
             log: 詳細なロギングを有効にする（デフォルト: False）
         """
 ```
 
 **メソッド:**
 
-- `run() -> PipelineResult`: ディレクトリでパイプラインを実行
-- `run_on_paths(paths: List[Path]) -> PipelineResult`: 特定のファイルパスで実行
-- `run_on_arrays(images: List[np.ndarray]) -> PipelineResult`: numpy配列で実行
+- `run(input_path=..., input_paths=..., input_arrays=...) -> PipelineResult`: 入力ソースを指定して実行
+- `PipelineResult.save(output_dir) -> None`: 変換済み画像を任意のディレクトリへ保存
 
 **例:**
 ```python
 pipeline = fi.Pipeline(
     steps=[fi.ResizeStep((512, 512)), fi.GrayscaleStep()],
-    input_path="input",
-    output_path="output",
     worker_count=8,
     log=True,
 )
 
 # ディレクトリで実行
-result = pipeline.run()
+result = pipeline.run(input_path="input")
+result.save("output")
 
 # 特定のファイルで実行
 from pathlib import Path
 specific_files = [Path("img1.jpg"), Path("img2.jpg")]
-result = pipeline.run_on_paths(specific_files)
+result = pipeline.run(input_paths=specific_files)
+result.save("output")
 
 # numpy配列で実行
 import numpy as np
 arrays = [np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)]
-result = pipeline.run_on_arrays(arrays)
+result = pipeline.run(input_arrays=arrays)
+result.save("output")
 ```
 
 #### PipelineResult
@@ -1621,9 +1614,10 @@ step = fi.ResizeStep((1024, 768))
 # パイプラインで使用
 pipeline = fi.Pipeline(
     steps=[fi.ResizeStep((800, 600))],
-    input_path="input",
-    output_path="output",
 )
+
+result = pipeline.run(input_path="input")
+result.save("output")
 ```
 
 #### GrayscaleStep
@@ -1972,7 +1966,7 @@ pipeline = fi.Pipeline(steps=[
     fi.GrayscaleStep(),
 ])
 
-result = pipeline.run_on_arrays(images)
+result = pipeline.run(input_arrays=images)
 print(f"{result.processed_count} 枚の合成画像を処理")
 ```
 
