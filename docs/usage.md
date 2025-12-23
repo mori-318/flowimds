@@ -108,7 +108,7 @@ The `settings` dictionary attached to the result is useful for logging or audit 
 When images fail to process, they're recorded in `result.failed_files` with detailed error information:
 
 ```python
-result = pipeline.run()
+result = pipeline.run(input_path="/path/to/input")
 
 if result.failed_count > 0:
     print(f"⚠️  {result.failed_count} images failed:")
@@ -187,24 +187,22 @@ def robust_pipeline_processing(input_path, output_path, max_retries=2):
                     fi.DenoiseStep(mode="median", kernel_size=5),
                     fi.BinarizeStep(mode="otsu"),
                 ],
-                output_path=output_path,
                 log=True,
             )
         elif complexity == "simple":
             return fi.Pipeline(
                 steps=[fi.ResizeStep((256, 256)), fi.GrayscaleStep()],
-                output_path=output_path,
                 log=True,
             )
         else:  # minimal
             return fi.Pipeline(
                 steps=[fi.ResizeStep((128, 128))],
-                output_path=output_path,
                 log=True,
             )
 
     # Try full pipeline first
-    result = create_pipeline("full").run()
+    result = create_pipeline("full").run(input_path=input_path)
+    result.save(output_path)
 
     # Retry failed images with simpler pipelines
     failed_files = result.failed_files.copy()
@@ -216,6 +214,7 @@ def robust_pipeline_processing(input_path, output_path, max_retries=2):
 
         print(f"Retry {retry_attempts}/{max_retries} with {complexity} pipeline...")
         retry_result = create_pipeline(complexity).run(input_paths=failed_files)
+        retry_result.save(output_path)
 
         # Update failed files list
         newly_failed = set(failed_files) - set(retry_result.output_mappings)
@@ -281,12 +280,8 @@ Pipelines accept either `str` or `pathlib.Path` values for filesystem paths. The
 | Setting | Type | Description |
 | --- | --- | --- |
 | `steps` | iterable of `PipelineStep` | Ordered sequence of transforms applied to each image. Any object exposing `apply(image)` can be used. |
-| `input_path` | `str` or `Path` (optional) | Folder to scan for images when using `run(input_path=...)`. Provide per call when discovering directories. |
-| `input_paths` | iterable of `str | Path` (optional) | Explicit file list processed when calling `run(input_paths=...)`. |
-| `input_arrays` | iterable of `np.ndarray` (optional) | In-memory images processed when calling `run(input_arrays=...)`. |
-| `output_path` | `str` or `Path` (optional) | Preconfigured destination used only when persisting directly from the pipeline instance. Most flows call `PipelineResult.save(...)` with an explicit path instead. |
-| `recursive` | `bool` | Enables recursive directory traversal when collecting images. |
-| `preserve_structure` | `bool` | If `True`, mirrors the input directory hierarchy inside `output_path`. Otherwise every output is placed directly under `output_path`. |
+| `recursive` | `bool` | Enables recursive directory traversal when collecting images via `run(input_path=...)`. |
+| `preserve_structure` | `bool` | If `True`, mirrors the input directory hierarchy when calling `PipelineResult.save(output_dir)`. Otherwise every output is placed directly under `output_dir`. |
 | `worker_count` | `int` (optional) | Maximum number of worker threads for parallel processing. `None` uses ~70% of CPU cores, `1` for sequential, `0` for all cores. |
 | `log` | `bool` | Enable progress bars and informational logs during processing. |
 
@@ -305,10 +300,11 @@ pipeline = fi.Pipeline(
         fi.ResizeStep((512, 512)),
         fi.GrayscaleStep(),
     ],
-    input_path="input",
-    output_path="output",
     worker_count=8,  # Use 8 worker threads
 )
+
+result = pipeline.run(input_path="input")
+result.save("output")
 ```
 
 **Worker count guidelines**:
@@ -331,12 +327,11 @@ pipeline = fi.Pipeline(
         fi.ResizeStep((256, 256)),
         fi.DenoiseStep(),
     ],
-    input_path="large_dataset",
-    output_path="processed",
     log=True,  # Enable progress bar and logs
 )
 
-result = pipeline.run()
+result = pipeline.run(input_path="large_dataset")
+result.save("processed")
 ```
 
 With `log=True`, you'll see:
@@ -349,7 +344,7 @@ With `log=True`, you'll see:
 - Large images consume more memory during parallel processing
 - Each worker thread holds at least one image in memory
 - If you encounter memory errors, reduce `worker_count` or process images in smaller batches
-- Consider using `run_on_arrays` for memory-efficient in-memory processing when you don't need file persistence
+- Consider using `input_arrays` for memory-efficient in-memory processing when you don't need file persistence
 
 ```python
 # Memory-efficient batch processing example
@@ -434,7 +429,7 @@ def process_in_batches(input_dir, output_dir, batch_size=100):
 
 ```python
 pipeline = fi.Pipeline(..., log=True)
-result = pipeline.run()
+result = pipeline.run(input_path="/path/to/input")
 ```
 
 4. Try `recursive=True` if images are in subdirectories
@@ -461,7 +456,7 @@ print(f"Found {len(images)} supported images")
 
 **Solutions**:
 
-1. Ensure `output_path` directory exists (created automatically)
+1. Ensure the directory passed to `PipelineResult.save(...)` exists (created automatically)
 2. Check write permissions for output directory
 3. Inspect `result.failed_files` for specific failures
 4. Verify output mappings:
@@ -495,13 +490,12 @@ for mapping in result.output_mappings:
 # Demonstrating collision handling
 pipeline = fi.Pipeline(
     steps=[fi.GrayscaleStep()],
-    input_path="input",  # Contains: folder1/image.png, folder2/image.png
-    output_path="output",
     preserve_structure=False,  # Flatten output
     log=True,
 )
 
-result = pipeline.run()
+result = pipeline.run(input_path="input")
+result.save("output")
 for mapping in result.output_mappings:
     print(f"{mapping.input_path} -> {mapping.output_path}")
 # Output:
@@ -527,7 +521,7 @@ def profile_pipeline(pipeline):
     memory_before = psutil.virtual_memory().percent
 
     start_time = time.time()
-    result = pipeline.run()
+    result = pipeline.run(input_path="/path/to/input")
     end_time = time.time()
 
     cpu_after = psutil.cpu_percent()
@@ -549,7 +543,7 @@ def profile_pipeline(pipeline):
 2. For CPU-bound workloads (large images, complex transforms): reduce `worker_count`
 3. Monitor memory usage and reduce workers if needed
 4. Consider processing in batches for very large collections
-5. Use `run_on_arrays` when you don't need file persistence
+5. Use `input_arrays` when you don't need file persistence
 
 ### Memory Errors
 
@@ -563,14 +557,13 @@ def memory_safe_processing(input_path, output_path):
     # Start with conservative settings
     pipeline = fi.Pipeline(
         steps=[fi.ResizeStep((512, 512))],
-        input_path=input_path,
-        output_path=output_path,
         worker_count=1,  # Sequential processing
         log=True,
     )
 
     try:
-        result = pipeline.run()
+        result = pipeline.run(input_path=input_path)
+        result.save(output_path)
         return result
     except MemoryError:
         print("Memory error occurred, trying batch processing...")
@@ -585,10 +578,10 @@ def memory_safe_processing(input_path, output_path):
             batch = all_images[i:i + batch_size]
             batch_pipeline = fi.Pipeline(
                 steps=[fi.ResizeStep((512, 512))],
-                output_path=output_path,
                 worker_count=1,
             )
-            batch_result = batch_pipeline.run_on_paths(batch)
+            batch_result = batch_pipeline.run(input_paths=batch)
+            batch_result.save(output_path)
             total_processed += batch_result.processed_count
             print(f"Batch {i//batch_size + 1}: {batch_result.processed_count} processed")
 
@@ -610,13 +603,12 @@ def memory_safe_processing(input_path, output_path):
 # Japanese file names work correctly
 pipeline = fi.Pipeline(
     steps=[fi.ResizeStep((256, 256))],
-    input_path="写真/入力",  # Japanese directory name
-    output_path="写真/出力",  # Japanese directory name
     recursive=True,
     log=True,
 )
 
-result = pipeline.run()
+result = pipeline.run(input_path="写真/入力")  # Japanese directory name
+result.save("写真/出力")  # Japanese directory name
 print(f"Processed {result.processed_count} images with Japanese paths")
 ```
 
@@ -703,13 +695,12 @@ def resize_for_web(input_dir, output_dir, sizes=[(1920, 1080), (1280, 720), (640
 
         pipeline = fi.Pipeline(
             steps=[fi.ResizeStep((width, height))],
-            input_path=input_dir,
-            output_path=f"{output_dir}/{width}x{height}",
             log=True,
             worker_count=4,
         )
 
-        result = pipeline.run()
+        result = pipeline.run(input_path=input_dir)
+        result.save(f"{output_dir}/{width}x{height}")
         print(f"  Completed: {result.processed_count} images")
         if result.failed_count > 0:
             print(f"  Failed: {result.failed_count} images")
@@ -733,13 +724,12 @@ def document_preprocessing(input_dir, output_dir):
             fi.DenoiseStep(mode="gaussian", kernel_size=5),  # Remove noise
             fi.BinarizeStep(mode="otsu"),  # Optimal thresholding
         ],
-        input_path=input_dir,
-        output_path=output_dir,
         log=True,
         worker_count=2,  # Conservative for large documents
     )
 
-    result = pipeline.run()
+    result = pipeline.run(input_path=input_dir)
+    result.save(output_dir)
     print(f"Document processing complete:")
     print(f"  Successfully processed: {result.processed_count}")
     print(f"  Failed: {result.failed_count}")
@@ -769,14 +759,13 @@ def prepare_ml_dataset(input_dir, output_dir, target_size=(224, 224), augment=Fa
 
     pipeline = fi.Pipeline(
         steps=steps,
-        input_path=input_dir,
-        output_path=output_dir,
         preserve_structure=True,  # Keep class folders
         log=True,
         worker_count=6,
     )
 
-    result = pipeline.run()
+    result = pipeline.run(input_path=input_dir)
+    result.save(output_dir)
 
     # Generate dataset statistics
     print(f"Dataset preparation complete:")
@@ -846,13 +835,12 @@ def create_thumbnails_with_watermark(input_dir, output_dir, thumbnail_size=(300,
             fi.ResizeStep(thumbnail_size),
             WatermarkStep("© My Gallery 2024"),
         ],
-        input_path=input_dir,
-        output_path=output_dir,
         log=True,
         worker_count=8,
     )
 
-    result = pipeline.run()
+    result = pipeline.run(input_path=input_dir)
+    result.save(output_dir)
     print(f"Thumbnail generation complete: {result.processed_count} thumbnails created")
 
     return result
@@ -899,13 +887,12 @@ def medical_image_preprocessing(input_dir, output_dir):
             ContrastEnhancementStep(clip_limit=3.0),  # Enhance contrast
             fi.DenoiseStep(mode="median", kernel_size=3),  # Remove noise
         ],
-        input_path=input_dir,
-        output_path=output_dir,
         log=True,
         worker_count=2,  # Conservative for medical images
     )
 
-    result = pipeline.run()
+    result = pipeline.run(input_path=input_dir)
+    result.save(output_dir)
     print(f"Medical image preprocessing complete:")
     print(f"  Processed: {result.processed_count} images")
     print(f"  Failed: {result.failed_count} images")
@@ -937,7 +924,6 @@ class ImageProcessorHandler(FileSystemEventHandler):
                 fi.GrayscaleStep(),
                 fi.DenoiseStep(mode="gaussian", kernel_size=3),
             ],
-            output_path=output_dir,
             worker_count=2,
         )
 
@@ -954,7 +940,8 @@ class ImageProcessorHandler(FileSystemEventHandler):
             time.sleep(1)
 
             try:
-                result = self.pipeline.run_on_paths([file_path])
+                result = self.pipeline.run(input_paths=[file_path])
+                result.save(self.output_dir)
                 if result.processed_count > 0:
                     print(f"  ✓ Processed successfully")
                 else:
@@ -1049,13 +1036,12 @@ def quality_assessment_pipeline(input_dir, output_dir, good_dir, poor_dir):
             fi.ResizeStep((1024, 768)),
             quality_step,
         ],
-        input_path=input_dir,
-        output_path=output_dir,
         log=True,
         worker_count=4,
     )
 
-    result = pipeline.run()
+    result = pipeline.run(input_path=input_dir)
+    result.save(output_dir)
 
     # Analyze quality scores
     if quality_step.quality_scores:
@@ -1131,9 +1117,10 @@ pipeline = fi.Pipeline(
         BrightnessStep(brightness_factor=1.2),  # Increase brightness by 20%
         fi.GrayscaleStep(),
     ],
-    input_path="input",
-    output_path="output",
 )
+
+result = pipeline.run(input_path="input")
+result.save("output")
 ```
 
 #### Example 2: Gaussian Blur with Custom Parameters
@@ -1324,7 +1311,7 @@ pipeline = fi.Pipeline(
     ],
 )
 
-result = pipeline.run()
+result = pipeline.run(input_path="/path/to/input")
 print(f"Final threshold used: {threshold_step.final_threshold}")
 ```
 
@@ -1489,14 +1476,13 @@ custom_pipeline = fi.Pipeline(
         EdgeDetectionStep(method="canny", low_threshold=50, high_threshold=150),
         HistogramEqualizationStep(use_clahe=True),
     ],
-    input_path="input",
-    output_path="output",
     log=True,
     worker_count=4,
 )
 
 # Run the pipeline
-result = custom_pipeline.run()
+result = custom_pipeline.run(input_path="input")
+result.save("output")
 print(f"Processed {result.processed_count} images with custom pipeline")
 ```
 
@@ -1515,53 +1501,49 @@ class Pipeline:
     def __init__(
         self,
         steps: List[PipelineStep],
-        input_path: Optional[str] = None,
-        output_path: Optional[str] = None,
-        worker_count: int = 4,
-        preserve_structure: bool = True,
+        recursive: bool = False,
+        preserve_structure: bool = False,
+        worker_count: Optional[int] = None,
         log: bool = False,
     ):
         """Initialize a new pipeline.
 
         Args:
             steps: List of processing steps implementing PipelineStep protocol
-            input_path: Directory containing input images (optional)
-            output_path: Directory for output images (optional)
-            worker_count: Number of parallel workers (default: 4)
-            preserve_structure: Whether to preserve directory structure (default: True)
+            recursive: Whether to traverse the input directory recursively
+            preserve_structure: Whether to preserve directory structure when saving
+            worker_count: Number of parallel workers (default: ~70% CPU cores)
             log: Enable detailed logging (default: False)
         """
 ```
 
 **Methods:**
 
-- `run() -> PipelineResult`: Execute pipeline on directory
-- `run_on_paths(paths: List[Path]) -> PipelineResult`: Execute on specific file paths
-- `run_on_arrays(images: List[np.ndarray]) -> PipelineResult`: Execute on numpy arrays
+- `run(*, input_path=None, input_paths=None, input_arrays=None) -> PipelineResult`: Execute pipeline over directory, explicit paths, or in-memory arrays
 
 **Example:**
 
 ```python
 pipeline = fi.Pipeline(
     steps=[fi.ResizeStep((512, 512)), fi.GrayscaleStep()],
-    input_path="input",
-    output_path="output",
     worker_count=8,
     log=True,
 )
 
 # Run on directory
-result = pipeline.run()
+result = pipeline.run(input_path="input")
+result.save("output")
 
 # Run on specific files
 from pathlib import Path
 specific_files = [Path("img1.jpg"), Path("img2.jpg")]
-result = pipeline.run_on_paths(specific_files)
+result = pipeline.run(input_paths=specific_files)
+result.save("output")
 
 # Run on numpy arrays
 import numpy as np
 arrays = [np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)]
-result = pipeline.run_on_arrays(arrays)
+result = pipeline.run(input_arrays=arrays)
 ```
 
 #### PipelineResult
@@ -1632,9 +1614,10 @@ step = fi.ResizeStep((1024, 768))
 # Use in pipeline
 pipeline = fi.Pipeline(
     steps=[fi.ResizeStep((800, 600))],
-    input_path="input",
-    output_path="output",
 )
+
+result = pipeline.run(input_path="input")
+result.save("output")
 ```
 
 #### GrayscaleStep
@@ -1983,7 +1966,7 @@ pipeline = fi.Pipeline(steps=[
     fi.GrayscaleStep(),
 ])
 
-result = pipeline.run_on_arrays(images)
+result = pipeline.run(input_arrays=images)
 print(f"Processed {result.processed_count} synthetic images")
 ```
 
