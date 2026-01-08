@@ -34,19 +34,26 @@ import flowimds as fi
 # パイプラインを定義
 # 引数:
 #   steps: パイプラインのステップ群
-#   recursive: 再帰的に走査するかどうか（デフォルト: False）
-#   preserve_structure: 保存時に入力構造を保持するかどうか（デフォルト: True）
+#   worker_count: 並列ワーカー数（デフォルト: CPUコアの約70%）
+#   log: プログレスバーを表示するかどうか（デフォルト: False）
 pipeline = fi.Pipeline(
     steps=[
         fi.ResizeStep((128, 128)),
         fi.GrayscaleStep(),
     ],
-    recursive=True,
-    preserve_structure=True,
 )
 
-result = pipeline.run(input_path="samples/input")
-result.save("samples/output")
+# パイプラインを実行
+# 引数:
+#   input_path: 画像を探索するディレクトリ
+#   recursive: サブディレクトリも走査するかどうか（デフォルト: False）
+result = pipeline.run(input_path="samples/input", recursive=True)
+
+# 結果を保存
+# 引数:
+#   output_dir: 保存先ディレクトリ
+#   preserve_structure: 入力構造を保持するかどうか（デフォルト: False）
+result.save("samples/output", preserve_structure=True)
 
 # 結果を表示
 # 結果内容:

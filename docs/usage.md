@@ -24,16 +24,14 @@ pipeline = fi.Pipeline(
         fi.GrayscaleStep(),
         fi.DenoiseStep(mode="median", kernel_size=5),
     ],
-    recursive=True,
-    preserve_structure=True,
 )
 
-result = pipeline.run(input_path="/path/to/input")  # str or pathlib.Path
-result.save("/path/to/output")
+result = pipeline.run(input_path="/path/to/input", recursive=True)  # str or pathlib.Path
+result.save("/path/to/output", preserve_structure=True)
 print(f"Processed {result.processed_count} images in {result.duration_seconds:.2f}s")
 ```
 
-Use this form when you want the library to scan a directory for supported image types (`.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, `.tif`). Set `recursive=True` to traverse subdirectories and `preserve_structure=True` to mirror the input tree whenever you call `PipelineResult.save`.
+Use this form when you want the library to scan a directory for supported image types (`.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, `.tif`). Set `recursive=True` in `run()` to traverse subdirectories and `preserve_structure=True` in `save()` to mirror the input tree.
 
 ### Running against an explicit list of paths
 
@@ -280,8 +278,6 @@ Pipelines accept either `str` or `pathlib.Path` values for filesystem paths. The
 | Setting | Type | Description |
 | --- | --- | --- |
 | `steps` | iterable of `PipelineStep` | Ordered sequence of transforms applied to each image. Any object exposing `apply(image)` can be used. |
-| `recursive` | `bool` | Enables recursive directory traversal when collecting images via `run(input_path=...)`. |
-| `preserve_structure` | `bool` | If `True`, mirrors the input directory hierarchy when calling `PipelineResult.save(output_dir)`. Otherwise every output is placed directly under `output_dir`. |
 | `worker_count` | `int` (optional) | Maximum number of worker threads for parallel processing. `None` uses ~70% of CPU cores, `1` for sequential, `0` for all cores. |
 | `log` | `bool` | Enable progress bars and informational logs during processing. |
 
@@ -490,12 +486,11 @@ for mapping in result.output_mappings:
 # Demonstrating collision handling
 pipeline = fi.Pipeline(
     steps=[fi.GrayscaleStep()],
-    preserve_structure=False,  # Flatten output
     log=True,
 )
 
 result = pipeline.run(input_path="input")
-result.save("output")
+result.save("output", preserve_structure=False)  # Flatten output
 for mapping in result.output_mappings:
     print(f"{mapping.input_path} -> {mapping.output_path}")
 # Output:
@@ -603,11 +598,10 @@ def memory_safe_processing(input_path, output_path):
 # Japanese file names work correctly
 pipeline = fi.Pipeline(
     steps=[fi.ResizeStep((256, 256))],
-    recursive=True,
     log=True,
 )
 
-result = pipeline.run(input_path="写真/入力")  # Japanese directory name
+result = pipeline.run(input_path="写真/入力", recursive=True)  # Japanese directory name
 result.save("写真/出力")  # Japanese directory name
 print(f"Processed {result.processed_count} images with Japanese paths")
 ```
@@ -759,13 +753,12 @@ def prepare_ml_dataset(input_dir, output_dir, target_size=(224, 224), augment=Fa
 
     pipeline = fi.Pipeline(
         steps=steps,
-        preserve_structure=True,  # Keep class folders
         log=True,
         worker_count=6,
     )
 
     result = pipeline.run(input_path=input_dir)
-    result.save(output_dir)
+    result.save(output_dir, preserve_structure=True)  # Keep class folders
 
     # Generate dataset statistics
     print(f"Dataset preparation complete:")

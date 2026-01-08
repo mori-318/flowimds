@@ -316,15 +316,13 @@ def _run_pipeline_sequential(
 
     pipeline = Pipeline(
         steps=list(steps),
-        recursive=recursive,
-        preserve_structure=preserve_structure,
         worker_count=1,
         log=True,
     )
 
     start = perf_counter()
-    result = pipeline.run(input_path=input_dir)
-    result.save(output_dir)
+    result = pipeline.run(input_path=input_dir, recursive=recursive)
+    result.save(output_dir, preserve_structure=preserve_structure)
     return perf_counter() - start
 
 
@@ -366,15 +364,13 @@ def _run_pipeline_parallel(
     worker_count = _effective_workers(workers)
     pipeline = Pipeline(
         steps=list(steps_factory()),
-        recursive=recursive,
-        preserve_structure=preserve_structure,
         worker_count=worker_count if worker_count > 0 else None,
         log=False,
     )
 
     start = perf_counter()
     result = pipeline.run(input_paths=image_paths)
-    result.save(output_dir)
+    result.save(output_dir, preserve_structure=preserve_structure)
     return perf_counter() - start
 
 
@@ -416,42 +412,46 @@ def _run_definition(
 
     new_pipeline_seq = Pipeline(
         steps=definition.build_steps(),
-        recursive=definition.recursive,
-        preserve_structure=definition.preserve_structure,
         worker_count=1,
         log=True,
     )
     new_seq_start = perf_counter()
-    new_seq_result = new_pipeline_seq.run(input_path=dataset_dir)
-    new_seq_result.save(new_sequential_dir)
+    new_seq_result = new_pipeline_seq.run(
+        input_path=dataset_dir, recursive=definition.recursive
+    )
+    new_seq_result.save(
+        new_sequential_dir, preserve_structure=definition.preserve_structure
+    )
     new_seq_seconds = perf_counter() - new_seq_start
 
     new_pipeline_parallel_logged = Pipeline(
         steps=definition.build_steps(),
-        recursive=definition.recursive,
-        preserve_structure=definition.preserve_structure,
         worker_count=workers if workers > 0 else None,
         log=True,
     )
     new_parallel_logged_start = perf_counter()
     new_parallel_logged_result = new_pipeline_parallel_logged.run(
         input_path=dataset_dir,
+        recursive=definition.recursive,
     )
-    new_parallel_logged_result.save(parallel_logged_dir)
+    new_parallel_logged_result.save(
+        parallel_logged_dir, preserve_structure=definition.preserve_structure
+    )
     new_parallel_logged_seconds = perf_counter() - new_parallel_logged_start
 
     new_pipeline_parallel_quiet = Pipeline(
         steps=definition.build_steps(),
-        recursive=definition.recursive,
-        preserve_structure=definition.preserve_structure,
         worker_count=workers if workers > 0 else None,
         log=False,
     )
     new_parallel_quiet_start = perf_counter()
     new_parallel_quiet_result = new_pipeline_parallel_quiet.run(
         input_path=dataset_dir,
+        recursive=definition.recursive,
     )
-    new_parallel_quiet_result.save(parallel_quiet_dir)
+    new_parallel_quiet_result.save(
+        parallel_quiet_dir, preserve_structure=definition.preserve_structure
+    )
     new_parallel_quiet_seconds = perf_counter() - new_parallel_quiet_start
     return ComparisonResult(
         label=definition.label,

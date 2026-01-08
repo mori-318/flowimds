@@ -43,20 +43,18 @@ def main() -> None:
 
     pipeline = fi.Pipeline(
         steps=[fi.ResizeStep((32, 32)), fi.GrayscaleStep()],
-        recursive=False,
-        preserve_structure=False,
     )
 
-    result = pipeline.run(input_path=input_dir)
+    result = pipeline.run(input_path=input_dir, recursive=False)
     print("Directory run produced the following outputs:")
-    result.save(output_dir)
+    result.save(output_dir, preserve_structure=False)
     for mapping in result.output_mappings:
         print(f" - {mapping.output_path}")
 
     images = [fi.read_image(str(path)) for path in input_paths]
     arrays_result = pipeline.run(input_arrays=images)
     print("In-memory run produced the following outputs:")
-    arrays_result.save(output_dir)
+    arrays_result.save(output_dir, preserve_structure=False)
     for mapping in arrays_result.output_mappings:
         print(f" - {mapping.output_path}")
 

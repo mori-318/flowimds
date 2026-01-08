@@ -1,208 +1,20 @@
-"""The newest pipeline core implementation after version 0.2.0."""
+"""Pipeline orchestration for image processing."""
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
-from dataclasses import dataclass
 import os
 from pathlib import Path
-from threading import Lock
 from time import perf_counter
-from typing import Callable, Iterable, TypedDict, cast
+from typing import Callable, Iterable
 
 import numpy as np
 from tqdm import tqdm
 
+from flowimds.models import OutputMapping, PipelineSettings, ProcessedImage
+from flowimds.result import PipelineResult
 from flowimds.steps import PipelineStep
 from flowimds.utils.image_discovery import IMAGE_SUFFIXES, collect_image_paths
-from flowimds.utils.image_io import read_image, write_image
-
-
-@dataclass
-class OutputMapping:
-    """Mapping between an input file path and the persisted output path."""
-
-    input_path: Path
-    output_path: Path
-
-
-@dataclass
-class ProcessedImage:
-    """Container that keeps transformed image data before persistence."""
-
-    input_path: Path | None
-    image: np.ndarray
-
-
-class PipelineSettings(TypedDict):
-    """Typed mapping representing pipeline configuration for a run."""
-
-    input_path: str | None
-    output_path: str | None
-    recursive: bool
-    preserve_structure: bool
-    worker_count: int
-    log_enabled: bool
-
-
-@dataclass
-class PipelineResult:
-    """Result of a pipeline run.
-
-    Attributes:
-        processed_count: Total number of successfully processed images.
-        failed_count: Total number of images that failed to process.
-        failed_files: Paths of the files that failed to process.
-        output_mappings: Mapping objects that describe output destinations.
-        duration_seconds: Execution time in seconds.
-        settings: Settings that were in effect for the run.
-        processed_images: In-memory processed images for deferred saving.
-        source_root: Base path used for structure preservation when saving.
-    """
-
-    processed_count: int
-    failed_count: int
-    failed_files: list[str]
-    output_mappings: list[OutputMapping]
-    duration_seconds: float
-    settings: PipelineSettings
-    processed_images: list[ProcessedImage]
-    source_root: Path | None
-
-    def save(self, output_dir: Path | str) -> None:
-        """Persist processed images to ``output_dir``.
-
-        Args:
-            output_dir: Destination directory where processed images are written.
-        """
-
-        if not self.processed_images:
-            return
-
-        destination_root = Path(output_dir)
-        destination_root.mkdir(parents=True, exist_ok=True)
-
-        preserve_structure = bool(self.settings.get("preserve_structure", False))
-        source_root = self.source_root
-        input_setting = self.settings.get("input_path")
-        if source_root is None and input_setting:
-            source_root = Path(input_setting)
-
-        used_names: set[str] = set()
-        used_names_lock = Lock()
-
-        def _allocate_filename(base_name: str) -> str:
-            with used_names_lock:
-                return self._ensure_unique_name(base_name, used_names)
-
-        def _resolve_destination(index: int, source: Path | None) -> Path:
-            if (
-                preserve_structure
-                and source is not None
-                and source_root is not None
-                and source.is_relative_to(source_root)
-            ):
-                relative_path = source.relative_to(source_root)
-                return destination_root / relative_path
-            if source is not None:
-                filename = _allocate_filename(source.name)
-            else:
-                filename = _allocate_filename(f"image_{index}.png")
-            return destination_root / filename
-
-        def _persist(
-            index: int, processed: ProcessedImage
-        ) -> tuple[bool, OutputMapping | str]:
-            source = processed.input_path
-            image = processed.image
-
-            destination_path = _resolve_destination(index, source)
-            destination_path.parent.mkdir(parents=True, exist_ok=True)
-
-            if write_image(str(destination_path), image):
-                return True, OutputMapping(
-                    input_path=source or Path(f"array_{index}"),
-                    output_path=destination_path,
-                )
-            return False, str(source) if source else f"array_{index}"
-
-        total = len(self.processed_images)
-        worker_count = max(1, int(self.settings.get("worker_count", 1)))
-        log_enabled = bool(self.settings.get("log_enabled", False))
-
-        if log_enabled:
-            logical_cores = os.cpu_count()
-            print(
-                "[flowimds] Saving "
-                f"{total} images | workers: {worker_count} / logical cores: "
-                f"{logical_cores}"
-            )
-
-        progress_bar = (
-            tqdm(total=total, desc="flowimds (save)", unit="image", leave=False)
-            if log_enabled and total > 0
-            else None
-        )
-
-        def _update_progress() -> None:
-            if progress_bar is not None:
-                progress_bar.update(1)
-
-        tasks = list(enumerate(self.processed_images, start=1))
-
-        try:
-            if worker_count <= 1 or total <= 1:
-                for index, processed in tasks:
-                    success, result = _persist(index, processed)
-                    if success:
-                        mapping = cast(OutputMapping, result)
-                        self.output_mappings.append(mapping)
-                    else:
-                        failed = cast(str, result)
-                        self.failed_files.append(failed)
-                    _update_progress()
-            else:
-                with ThreadPoolExecutor(max_workers=worker_count) as executor:
-                    future_to_payload = {
-                        executor.submit(_persist, index, processed): (index, processed)
-                        for index, processed in tasks
-                    }
-                    for future in as_completed(future_to_payload):
-                        index, processed = future_to_payload[future]
-                        try:
-                            success, result = future.result()
-                        except Exception:
-                            success = False
-                            result = (
-                                str(processed.input_path)
-                                if processed.input_path is not None
-                                else f"array_{index}"
-                            )
-                        if success:
-                            mapping = cast(OutputMapping, result)
-                            self.output_mappings.append(mapping)
-                        else:
-                            failed = cast(str, result)
-                            self.failed_files.append(failed)
-                        _update_progress()
-        finally:
-            if progress_bar is not None:
-                progress_bar.close()
-
-        self.processed_count = len(self.output_mappings)
-        self.failed_count = len(self.failed_files)
-
-    @staticmethod
-    def _ensure_unique_name(filename: str, used_names: set[str]) -> str:
-        """Return a unique filename for flattened saves."""
-
-        stem, suffix = os.path.splitext(filename)
-        candidate = filename
-        counter = 1
-        while candidate in used_names:
-            counter += 1
-            candidate = f"{stem}_no{counter}{suffix}"
-        used_names.add(candidate)
-        return candidate
+from flowimds.utils.image_io import read_image
 
 
 class Pipeline:
@@ -211,8 +23,6 @@ class Pipeline:
     def __init__(
         self,
         steps: Iterable[PipelineStep],
-        recursive: bool = False,
-        preserve_structure: bool = False,
         worker_count: int | None = None,
         log: bool = False,
     ) -> None:
@@ -220,8 +30,6 @@ class Pipeline:
 
         Args:
             steps: Iterable of processing steps that expose ``apply``.
-            recursive: Whether to traverse the input directory recursively.
-            preserve_structure: Whether to mirror the input directory structure.
             worker_count: Maximum number of worker threads used to process
                 images in parallel. ``None`` defaults to roughly 70% of the
                 CPU cores reported by :func:`os.cpu_count`.
@@ -230,14 +38,11 @@ class Pipeline:
         """
 
         self._steps = list(steps)
-        self._recursive = recursive
-        self._preserve_structure = preserve_structure
         self._worker_count = worker_count
         self._log_enabled = log
+        self._recursive = False
         self._input_path: Path | None = None
         self._output_path: Path | None = None
-        self._destination_lock = Lock()
-        self._flattened_destination_registry: set[str] = set()
 
     def run(
         self,
@@ -245,12 +50,20 @@ class Pipeline:
         input_path: Path | str | None = None,
         input_paths: Iterable[Path | str] | None = None,
         input_arrays: Iterable[np.ndarray] | None = None,
+        recursive: bool = False,
     ) -> PipelineResult:
         """Execute the pipeline and return the aggregated result.
+
+        Args:
+            input_path: Directory path to search for images.
+            input_paths: Explicit list of image file paths.
+            input_arrays: Iterable of numpy arrays representing images.
+            recursive: Whether to traverse the input directory recursively.
 
         Exactly one of ``input_path``, ``input_paths``, or ``input_arrays`` may be
         provided. When none are provided, the instance-level ``input_path`` is used.
         """
+        self._recursive = recursive
 
         self._validate_input_selection(
             input_path=input_path,
@@ -540,7 +353,6 @@ class Pipeline:
                 str(self._output_path) if self._output_path is not None else None
             ),
             recursive=self._recursive,
-            preserve_structure=self._preserve_structure,
             worker_count=self._resolve_worker_count(),
             log_enabled=self._log_enabled,
         )
@@ -613,56 +425,6 @@ class Pipeline:
         except ValueError:
             return None
         return Path(common)
-
-    def _resolve_destination(self, source: Path) -> Path:
-        """Resolve the output destination path for the given source.
-
-        Args:
-            source: Path to the source file.
-
-        Returns:
-            Path to the destination file.
-        """
-
-        destination_root = self._output_path
-        if destination_root is None:
-            msg = "output_path must be provided to persist results."
-            raise ValueError(msg)
-
-        if self._preserve_structure and self._input_path is not None:
-            try:
-                relative = source.relative_to(self._input_path)
-            except ValueError:
-                relative = Path(source.name)
-            return destination_root / relative
-        unique_name = self._ensure_unique_flat_filename(source.name)
-        return destination_root / unique_name
-
-    def _reset_destination_registry(self) -> None:
-        """Reset the registry that tracks flattened destination filenames."""
-
-        with self._destination_lock:
-            self._flattened_destination_registry.clear()
-
-    def _ensure_unique_flat_filename(self, filename: str) -> str:
-        """Return a unique filename for flattened outputs.
-
-        Args:
-            filename: Original filename including extension.
-
-        Returns:
-            Unique filename that appends ``_no{n}`` on collisions.
-        """
-
-        stem, suffix = os.path.splitext(filename)
-        counter = 1
-        candidate = filename
-        with self._destination_lock:
-            while candidate in self._flattened_destination_registry:
-                counter += 1
-                candidate = f"{stem}_no{counter}{suffix}"
-            self._flattened_destination_registry.add(candidate)
-        return candidate
 
     @staticmethod
     def _ensure_array(image: np.ndarray, index: int) -> np.ndarray:
