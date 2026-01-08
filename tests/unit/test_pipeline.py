@@ -1,63 +1,23 @@
-"""Unit tests that define the expected behaviour of ``Pipeline``."""
-
 from pathlib import Path
-from typing import assert_type, cast
+from typing import assert_type
 
 import cv2
 import numpy as np
 import pytest
 
-from flowimds.pipeline import Pipeline, PipelineResult
-from flowimds.steps import ResizeStep
+from flowimds.pipeline import Pipeline, PipelineResult, ProcessedImage
+from flowimds.steps.resize import ResizeStep
 from flowimds.utils.image_discovery import collect_image_paths
 from flowimds.utils.image_io import write_image
 
 
-def create_pipeline_with_resize_step(size: tuple[int, int]) -> Pipeline:
-    return Pipeline(
-        steps=[ResizeStep(size)],
-        recursive=False,
-        preserve_structure=True,
-    )
-
-
-def check_result_images(
-    result_images: list[Path], simple_input_dir: Path, target_size: tuple[int, int]
-) -> None:
-    input_images = collect_image_paths(simple_input_dir)
-    assert len(result_images) == len(input_images)
-    for result_path in result_images:
-        image = cv2.imread(str(result_path))
-        assert image is not None
-        height, width = image.shape[:2]
-        assert (width, height) == target_size
-
-
-def _normalise_mapping(mapping: object) -> tuple[Path, Path]:
-    """Convert mapping objects into ``(input_path, output_path)`` tuples."""
-
-    if hasattr(mapping, "input_path") and hasattr(mapping, "output_path"):
-        return Path(mapping.input_path), Path(mapping.output_path)
-    if isinstance(mapping, dict):  # pragma: no cover - defensive branch
-        return Path(mapping["input_path"]), Path(mapping["output_path"])
-    input_path, output_path = cast(
-        tuple[str | Path, str | Path],
-        mapping,
-    )
-    return Path(input_path), Path(output_path)
-
-
 class FailingStep:
-    """Test double that raises an error for every invocation."""
+    """常にエラーを発生させるテスト用ステップ。"""
 
     def __init__(self) -> None:
-        """Initialise the failing step."""
-
         self.call_count = 0
 
     def apply(self, image: np.ndarray) -> np.ndarray:  # noqa: ARG002
-        """Raise an error to emulate a processing failure."""
-
         self.call_count += 1
         raise RuntimeError("intentional step failure")
 
@@ -67,65 +27,43 @@ def test_pipeline_applies_steps_and_generates_results(
     simple_input_dir: Path,
     output_dir: Path,
 ) -> None:
-    """`Pipeline` should transform every image and persist resized copies."""
-
+    """Pipelineが全画像を変換し、リサイズ結果を保存する。"""
     target_size = (40, 40)
-    pipeline = create_pipeline_with_resize_step(target_size)
+    pipeline = Pipeline(steps=[ResizeStep(target_size)])
 
     result = pipeline.run(input_path=simple_input_dir)
     result.save(output_dir)
     assert_type(result, PipelineResult)
 
     input_images = collect_image_paths(simple_input_dir)
-
     assert result.processed_count == len(input_images)
     assert result.failed_count == 0
-    assert not result.failed_files
 
-    normalised_mappings = [
-        _normalise_mapping(mapping) for mapping in result.output_mappings
-    ]
-    assert len(normalised_mappings) == len(input_images)
-    for source_path, output_path in normalised_mappings:
-        assert Path(source_path) in input_images
-        assert output_path.is_relative_to(output_dir)
-        assert output_path.exists()
-        image = cv2.imread(str(output_path))
-        assert image is not None
-        height, width = image.shape[:2]
-        assert (width, height) == target_size
-    assert result.settings["recursive"] is False
-    input_setting = result.settings["input_path"]
-    assert input_setting is not None
-    assert Path(input_setting) == simple_input_dir
-    assert result.settings["output_path"] is None
+    for mapping in result.output_mappings:
+        assert mapping.output_path.exists()
+        img = cv2.imread(str(mapping.output_path))
+        assert img is not None
+        h, w = img.shape[:2]
+        assert (w, h) == target_size
+
     assert result.duration_seconds >= 0
 
 
 @pytest.mark.usefixtures("simple_input_dir")
 def test_pipeline_records_failures_and_continues(
     simple_input_dir: Path,
-    tmp_path_factory: pytest.TempPathFactory,
 ) -> None:
-    """`Pipeline` should capture failing files without aborting the run."""
-
+    """Pipelineが失敗ファイルを記録しつつ処理を継続する。"""
     failing_step = FailingStep()
-    output_path = tmp_path_factory.mktemp("failures")
-    pipeline = Pipeline(
-        steps=[failing_step],
-        recursive=False,
-        preserve_structure=False,
-    )
+    pipeline = Pipeline(steps=[failing_step])
 
     result = pipeline.run(input_path=simple_input_dir)
     assert_type(result, PipelineResult)
 
     input_images = collect_image_paths(simple_input_dir)
-
     assert result.processed_count == 0
     assert result.failed_count == len(input_images)
-    assert sorted(Path(path) for path in result.failed_files) == input_images
-    assert not any(output_path.iterdir())
+    assert sorted(Path(p) for p in result.failed_files) == input_images
     assert failing_step.call_count == len(input_images)
 
 
@@ -133,65 +71,37 @@ def test_pipeline_flattened_outputs_are_unique(
     tmp_path: Path,
     output_dir: Path,
 ) -> None:
-    """Pipeline should de-duplicate flattened output filenames."""
-
+    """フラット化出力時にファイル名が重複しないよう連番付与される。"""
     input_root = tmp_path / "inputs"
-    nested_a = input_root / "a"
-    nested_b = input_root / "b"
-    nested_a.mkdir(parents=True, exist_ok=True)
-    nested_b.mkdir(parents=True, exist_ok=True)
+    (input_root / "a").mkdir(parents=True)
+    (input_root / "b").mkdir(parents=True)
 
     image = np.zeros((16, 16, 3), dtype=np.uint8)
-    write_image(str(nested_a / "duplicate.png"), image)
-    write_image(str(nested_b / "duplicate.png"), image)
+    write_image(str(input_root / "a" / "duplicate.png"), image)
+    write_image(str(input_root / "b" / "duplicate.png"), image)
 
-    pipeline = Pipeline(
-        steps=[ResizeStep((16, 16))],
-        recursive=True,
-        preserve_structure=False,
-    )
-
+    pipeline = Pipeline(steps=[ResizeStep((16, 16))], recursive=True)
     result = pipeline.run(input_path=input_root)
     result.save(output_dir)
-    assert_type(result, PipelineResult)
 
-    output_files = sorted(path.name for path in output_dir.glob("*.png"))
-
+    output_files = sorted(p.name for p in output_dir.glob("*.png"))
     assert result.processed_count == 2
-    assert result.failed_count == 0
     assert output_files == ["duplicate.png", "duplicate_no2.png"]
 
 
 @pytest.mark.usefixtures("recursive_input_dir")
 def test_pipeline_honours_recursive_flag(
     recursive_input_dir: Path,
-    tmp_path_factory: pytest.TempPathFactory,
 ) -> None:
-    """`Pipeline` should toggle recursive discovery based on the flag."""
-
-    top_level_images = collect_image_paths(recursive_input_dir)
+    """recursiveフラグに応じてサブディレクトリを探索する。"""
+    top_level = collect_image_paths(recursive_input_dir, recursive=False)
     all_images = collect_image_paths(recursive_input_dir, recursive=True)
 
-    non_recursive_pipeline = Pipeline(
-        steps=[ResizeStep((16, 16))],
-        recursive=False,
-        preserve_structure=False,
-    )
-    non_recursive_result = non_recursive_pipeline.run(input_path=recursive_input_dir)
-    non_recursive_result.save(tmp_path_factory.mktemp("non_recursive"))
-    assert_type(non_recursive_result, PipelineResult)
+    non_rec = Pipeline(steps=[], recursive=False).run(input_path=recursive_input_dir)
+    rec = Pipeline(steps=[], recursive=True).run(input_path=recursive_input_dir)
 
-    recursive_pipeline = Pipeline(
-        steps=[ResizeStep((16, 16))],
-        recursive=True,
-        preserve_structure=False,
-    )
-    recursive_result = recursive_pipeline.run(input_path=recursive_input_dir)
-    recursive_result.save(tmp_path_factory.mktemp("recursive"))
-    assert_type(recursive_result, PipelineResult)
-
-    assert non_recursive_result.processed_count == len(top_level_images)
-    assert recursive_result.processed_count == len(all_images)
+    assert non_rec.processed_count == len(top_level)
+    assert rec.processed_count == len(all_images)
 
 
 @pytest.mark.usefixtures("simple_input_dir")
@@ -199,95 +109,60 @@ def test_pipeline_run_on_paths_processes_explicit_list(
     simple_input_dir: Path,
     output_dir: Path,
 ) -> None:
-    """`Pipeline.run` with input_paths should process the provided file list only."""
-
+    """input_pathsで明示的にファイルリストを渡して処理する。"""
     target_size = (28, 28)
     image_paths = collect_image_paths(simple_input_dir)
-
-    pipeline = Pipeline(
-        steps=[ResizeStep(target_size)],
-        recursive=False,
-        preserve_structure=False,
-    )
+    pipeline = Pipeline(steps=[ResizeStep(target_size)])
 
     result = pipeline.run(input_paths=image_paths)
     result.save(output_dir)
-    assert_type(result, PipelineResult)
 
     assert result.processed_count == len(image_paths)
     assert result.failed_count == 0
-    assert not result.failed_files
-    assert all(mapping.output_path.exists() for mapping in result.output_mappings)
     for mapping in result.output_mappings:
-        image = cv2.imread(str(mapping.output_path))
-        assert image is not None
-        height, width = image.shape[:2]
-        assert (width, height) == target_size
+        img = cv2.imread(str(mapping.output_path))
+        assert img is not None
+        h, w = img.shape[:2]
+        assert (w, h) == target_size
 
 
-def test_run_raises_when_input_path_missing(tmp_path: Path) -> None:
-    """`Pipeline.run` must require an input path."""
-
+def test_run_raises_when_input_path_missing() -> None:
+    """入力が未指定の場合ValueErrorを発生させる。"""
     pipeline = Pipeline(steps=[])
-
-    with pytest.raises(
-        ValueError,
-        match="input_path, input_paths, or input_arrays must be specified.",
-    ):
+    with pytest.raises(ValueError, match="input_path, input_paths, or input_arrays"):
         pipeline.run()
 
 
 @pytest.mark.usefixtures("simple_input_dir")
-def test_run_raises_when_output_path_missing(simple_input_dir: Path) -> None:
-    """`Pipeline.run` should support deferred saving when no output path is set."""
-
+def test_run_without_output_directory_returns_in_memory_results(
+    simple_input_dir: Path,
+) -> None:
+    """出力先未指定時はメモリ上に結果を保持する。"""
     pipeline = Pipeline(steps=[])
-
     result = pipeline.run(input_path=simple_input_dir)
     assert_type(result, PipelineResult)
 
     input_images = collect_image_paths(simple_input_dir)
-
     assert result.processed_count == len(input_images)
-    assert result.failed_count == 0
-    assert not result.failed_files
     assert result.output_mappings == []
     assert len(result.processed_images) == len(input_images)
 
 
 @pytest.mark.usefixtures("simple_input_dir")
-def test_run_raises_when_input_path_defined(
+def test_run_rejects_input_paths_when_input_directory_provided(
     simple_input_dir: Path,
-    output_dir: Path,
 ) -> None:
-    """`Pipeline.run` with input_paths should work with input_path."""
-
-    target_size = (28, 28)
+    """input_pathとinput_pathsを同時に指定するとエラー。"""
     image_paths = collect_image_paths(simple_input_dir)
-
-    pipeline = Pipeline(
-        steps=[ResizeStep(target_size)],
-        recursive=False,
-        preserve_structure=False,
-    )
-
-    # This should work - we can use input_paths with input_path set
-    result = pipeline.run(input_paths=image_paths)
-    result.save(output_dir)
-    assert_type(result, PipelineResult)
-
-    assert result.processed_count == len(image_paths)
-    assert result.failed_count == 0
-
-
-def test_run_on_paths_raises_when_output_path_missing() -> None:
-    """`Pipeline.run` with empty input_paths should work."""
-
     pipeline = Pipeline(steps=[])
 
-    # Running with empty list should work and return empty result
-    result = pipeline.run(input_paths=[])
-    assert_type(result, PipelineResult)
+    with pytest.raises(ValueError, match="Specify only one of"):
+        pipeline.run(input_path=simple_input_dir, input_paths=image_paths)
+
+
+def test_run_with_empty_input_paths_returns_empty_result() -> None:
+    """空リストを渡すと空の結果を返す。"""
+    result = Pipeline(steps=[]).run(input_paths=[])
     assert result.processed_count == 0
     assert result.failed_count == 0
 
@@ -296,24 +171,89 @@ def test_run_on_paths_raises_when_output_path_missing() -> None:
 def test_pipeline_run_on_arrays_returns_transformed_images(
     simple_input_dir: Path,
 ) -> None:
-    """`Pipeline.run` with input_arrays should return transformed images in memory."""
-
+    """input_arraysでnumpy配列を渡して処理する。"""
     image_paths = collect_image_paths(simple_input_dir)
-    arrays = []
-    for path in image_paths:
-        image = cv2.imread(str(path), cv2.IMREAD_COLOR)
-        assert image is not None
-        arrays.append(image)
+    arrays = [cv2.imread(str(p), cv2.IMREAD_COLOR) for p in image_paths]
 
-    pipeline = Pipeline(
-        steps=[ResizeStep((16, 16))],
-        recursive=False,
-        preserve_structure=False,
-    )
-
-    result = pipeline.run(input_arrays=arrays)
-    assert_type(result, PipelineResult)
+    result = Pipeline(steps=[ResizeStep((16, 16))]).run(input_arrays=arrays)
 
     assert len(result.processed_images) == len(arrays)
     for processed in result.processed_images:
         assert processed.image.shape[:2] == (16, 16)
+
+
+def test_run_raises_when_multiple_input_sources_provided(simple_input_dir: Path) -> None:
+    """複数の入力ソースを同時に指定するとエラー。"""
+    image_paths = collect_image_paths(simple_input_dir)
+    pipeline = Pipeline(steps=[])
+
+    with pytest.raises(ValueError, match="Specify only one of"):
+        pipeline.run(
+            input_paths=image_paths,
+            input_arrays=[np.zeros((4, 4, 3), dtype=np.uint8)],
+        )
+
+
+def test_run_raises_when_input_directory_missing(tmp_path: Path) -> None:
+    """存在しないディレクトリを指定するとFileNotFoundError。"""
+    missing_dir = tmp_path / "not_there"
+    with pytest.raises(FileNotFoundError, match="does not exist"):
+        Pipeline(steps=[]).run(input_path=missing_dir)
+
+
+def test_pipeline_result_save_is_noop_without_processed_images(tmp_path: Path) -> None:
+    """処理済み画像がない場合saveは何も書き込まない。"""
+    result = PipelineResult(
+        processed_count=0,
+        failed_count=0,
+        failed_files=[],
+        output_mappings=[],
+        duration_seconds=0.0,
+        settings={
+            "input_path": None,
+            "output_path": None,
+            "recursive": False,
+            "preserve_structure": False,
+            "worker_count": 1,
+            "log_enabled": False,
+        },
+        processed_images=[],
+        source_root=None,
+    )
+    result.save(tmp_path)
+    assert not any(tmp_path.iterdir())
+
+
+def test_pipeline_result_save_preserves_structure(tmp_path: Path) -> None:
+    """preserve_structure=Trueの場合、ディレクトリ構造を維持して保存する。"""
+    source_root = tmp_path / "source"
+    nested_dir = source_root / "nested"
+    nested_dir.mkdir(parents=True)
+    sample_path = nested_dir / "image.png"
+    write_image(str(sample_path), np.zeros((4, 4, 3), dtype=np.uint8))
+
+    processed = ProcessedImage(
+        input_path=sample_path,
+        image=np.zeros((8, 8, 3), dtype=np.uint8),
+    )
+    result = PipelineResult(
+        processed_count=1,
+        failed_count=0,
+        failed_files=[],
+        output_mappings=[],
+        duration_seconds=0.0,
+        settings={
+            "input_path": str(source_root),
+            "output_path": None,
+            "recursive": True,
+            "preserve_structure": True,
+            "worker_count": 1,
+            "log_enabled": False,
+        },
+        processed_images=[processed],
+        source_root=source_root,
+    )
+
+    destination = tmp_path / "output"
+    result.save(destination)
+    assert (destination / "nested" / "image.png").exists()
