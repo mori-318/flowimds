@@ -12,7 +12,7 @@ from flowimds.utils.image_io import write_image
 
 
 class FailingStep:
-    """常にエラーを発生させるテスト用ステップ。"""
+    """Test step that always raises."""
 
     def __init__(self) -> None:
         self.call_count = 0
@@ -27,7 +27,7 @@ def test_pipeline_applies_steps_and_generates_results(
     simple_input_dir: Path,
     output_dir: Path,
 ) -> None:
-    """Pipelineが全画像を変換し、リサイズ結果を保存する。"""
+    """Pipeline should transform all images and save resized copies."""
     target_size = (40, 40)
     pipeline = Pipeline(steps=[ResizeStep(target_size)])
 
@@ -53,7 +53,7 @@ def test_pipeline_applies_steps_and_generates_results(
 def test_pipeline_records_failures_and_continues(
     simple_input_dir: Path,
 ) -> None:
-    """Pipelineが失敗ファイルを記録しつつ処理を継続する。"""
+    """Pipeline records failed files while continuing."""
     failing_step = FailingStep()
     pipeline = Pipeline(steps=[failing_step])
 
@@ -71,7 +71,7 @@ def test_pipeline_flattened_outputs_are_unique(
     tmp_path: Path,
     output_dir: Path,
 ) -> None:
-    """フラット化出力時にファイル名が重複しないよう連番付与される。"""
+    """Flattened outputs should disambiguate duplicate filenames."""
     input_root = tmp_path / "inputs"
     (input_root / "a").mkdir(parents=True)
     (input_root / "b").mkdir(parents=True)
@@ -93,7 +93,7 @@ def test_pipeline_flattened_outputs_are_unique(
 def test_pipeline_honours_recursive_flag(
     recursive_input_dir: Path,
 ) -> None:
-    """recursiveフラグに応じてサブディレクトリを探索する。"""
+    """Recursive flag controls whether subdirectories are scanned."""
     top_level = collect_image_paths(recursive_input_dir, recursive=False)
     all_images = collect_image_paths(recursive_input_dir, recursive=True)
 
@@ -109,7 +109,7 @@ def test_pipeline_run_on_paths_processes_explicit_list(
     simple_input_dir: Path,
     output_dir: Path,
 ) -> None:
-    """input_pathsで明示的にファイルリストを渡して処理する。"""
+    """input_paths should process only the provided file list."""
     target_size = (28, 28)
     image_paths = collect_image_paths(simple_input_dir)
     pipeline = Pipeline(steps=[ResizeStep(target_size)])
@@ -127,7 +127,7 @@ def test_pipeline_run_on_paths_processes_explicit_list(
 
 
 def test_run_raises_when_input_path_missing() -> None:
-    """入力が未指定の場合ValueErrorを発生させる。"""
+    """Raise ValueError when no input is provided."""
     pipeline = Pipeline(steps=[])
     with pytest.raises(ValueError, match="input_path, input_paths, or input_arrays"):
         pipeline.run()
@@ -137,7 +137,7 @@ def test_run_raises_when_input_path_missing() -> None:
 def test_run_without_output_directory_returns_in_memory_results(
     simple_input_dir: Path,
 ) -> None:
-    """出力先未指定時はメモリ上に結果を保持する。"""
+    """Keep results in memory when no output path is given."""
     pipeline = Pipeline(steps=[])
     result = pipeline.run(input_path=simple_input_dir)
     assert_type(result, PipelineResult)
@@ -152,7 +152,7 @@ def test_run_without_output_directory_returns_in_memory_results(
 def test_run_rejects_input_paths_when_input_directory_provided(
     simple_input_dir: Path,
 ) -> None:
-    """input_pathとinput_pathsを同時に指定するとエラー。"""
+    """Error when input_path and input_paths are provided together."""
     image_paths = collect_image_paths(simple_input_dir)
     pipeline = Pipeline(steps=[])
 
@@ -161,7 +161,7 @@ def test_run_rejects_input_paths_when_input_directory_provided(
 
 
 def test_run_with_empty_input_paths_returns_empty_result() -> None:
-    """空リストを渡すと空の結果を返す。"""
+    """Empty list yields an empty result."""
     result = Pipeline(steps=[]).run(input_paths=[])
     assert result.processed_count == 0
     assert result.failed_count == 0
@@ -171,7 +171,7 @@ def test_run_with_empty_input_paths_returns_empty_result() -> None:
 def test_pipeline_run_on_arrays_returns_transformed_images(
     simple_input_dir: Path,
 ) -> None:
-    """input_arraysでnumpy配列を渡して処理する。"""
+    """input_arrays should return transformed images in memory."""
     image_paths = collect_image_paths(simple_input_dir)
     arrays = [cv2.imread(str(p), cv2.IMREAD_COLOR) for p in image_paths]
 
@@ -183,7 +183,7 @@ def test_pipeline_run_on_arrays_returns_transformed_images(
 
 
 def test_run_raises_when_multiple_input_sources_provided(simple_input_dir: Path) -> None:
-    """複数の入力ソースを同時に指定するとエラー。"""
+    """Error when multiple input source kinds are mixed."""
     image_paths = collect_image_paths(simple_input_dir)
     pipeline = Pipeline(steps=[])
 
@@ -195,14 +195,14 @@ def test_run_raises_when_multiple_input_sources_provided(simple_input_dir: Path)
 
 
 def test_run_raises_when_input_directory_missing(tmp_path: Path) -> None:
-    """存在しないディレクトリを指定するとFileNotFoundError。"""
+    """FileNotFoundError when input directory is missing."""
     missing_dir = tmp_path / "not_there"
     with pytest.raises(FileNotFoundError, match="does not exist"):
         Pipeline(steps=[]).run(input_path=missing_dir)
 
 
 def test_pipeline_result_save_is_noop_without_processed_images(tmp_path: Path) -> None:
-    """処理済み画像がない場合saveは何も書き込まない。"""
+    """save is a no-op when there are no processed images."""
     result = PipelineResult(
         processed_count=0,
         failed_count=0,
@@ -225,7 +225,7 @@ def test_pipeline_result_save_is_noop_without_processed_images(tmp_path: Path) -
 
 
 def test_pipeline_result_save_preserves_structure(tmp_path: Path) -> None:
-    """preserve_structure=Trueの場合、ディレクトリ構造を維持して保存する。"""
+    """When preserve_structure=True, save mirrors the source tree."""
     source_root = tmp_path / "source"
     nested_dir = source_root / "nested"
     nested_dir.mkdir(parents=True)
