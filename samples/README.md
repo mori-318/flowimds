@@ -10,7 +10,7 @@ the fly, so you can try the library without preparing any assets in advance.
 - Creates a temporary input directory with three coloured squares.
 - Runs the pipeline with resize and grayscale steps.
 - Demonstrates both `Pipeline.run()` for directory processing and
-  `Pipeline.run_on_arrays()` for in-memory transformations.
+  `Pipeline.run()` with numpy arrays for in-memory transformations.
 
 ### Running the example
 

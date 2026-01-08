@@ -36,19 +36,26 @@ import flowimds as fi
 # Define the pipeline
 # Args:
 #   steps: sequence of pipeline steps
-#   recursive: whether to traverse subdirectories (default: False)
-#   preserve_structure: whether to mirror the input tree when saving (default: True)
+#   worker_count: number of parallel workers (default: ~70% of CPU cores)
+#   log: whether to show progress bar (default: False)
 pipeline = fi.Pipeline(
     steps=[
         fi.ResizeStep((128, 128)),
         fi.GrayscaleStep(),
     ],
-    recursive=True,
-    preserve_structure=True,
 )
 
-result = pipeline.run(input_path="samples/input")
-result.save("samples/output")
+# Run the pipeline
+# Args:
+#   input_path: directory to scan for images
+#   recursive: whether to traverse subdirectories (default: False)
+result = pipeline.run(input_path="samples/input", recursive=True)
+
+# Save the results
+# Args:
+#   output_dir: destination directory
+#   preserve_structure: whether to mirror the input tree (default: False)
+result.save("samples/output", preserve_structure=True)
 
 # Inspect the result
 # Fields:

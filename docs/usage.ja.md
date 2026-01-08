@@ -24,16 +24,14 @@ pipeline = fi.Pipeline(
         fi.GrayscaleStep(),
         fi.DenoiseStep(mode="median", kernel_size=5),
     ],
-    recursive=True,
-    preserve_structure=True,
 )
 
-result = pipeline.run(input_path="/path/to/input")  # str でも pathlib.Path でも可
-result.save("/path/to/output")
+result = pipeline.run(input_path="/path/to/input", recursive=True)  # str でも pathlib.Path でも可
+result.save("/path/to/output", preserve_structure=True)
 print(f"Processed {result.processed_count} images in {result.duration_seconds:.2f}s")
 ```
 
-この形式は、ライブラリにディレクトリ走査を任せたいときに便利です。サポートされる拡張子（`.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, `.tif`）を自動で収集します。`recursive=True` でサブディレクトリをたどり、`preserve_structure=True` で入力の階層構造を出力側に再現できます。
+この形式は、ライブラリにディレクトリ走査を任せたいときに便利です。サポートされる拡張子（`.png`, `.jpg`, `.jpeg`, `.bmp`, `.tiff`, `.tif`）を自動で収集します。`run(recursive=True)` でサブディレクトリをたどり、`save(preserve_structure=True)` で入力の階層構造を出力側に再現できます。
 
 ### ファイルリストに対して実行する
 
@@ -282,12 +280,6 @@ def debug_failed_images(failed_files):
 | 設定項目 | 型 | 説明 |
 | --- | --- | --- |
 | `steps` | `PipelineStep` の反復可能オブジェクト | 各画像に順番に適用される変換のリスト。`apply(image)` を持つオブジェクトなら自作ステップも使えます。 |
-| `input_path` | `str` または `Path`（任意） | `run(input_path=...)` で画像を探索するディレクトリ。 |
-| `input_paths` | `Iterable[str | Path]`（任意） | `run(input_paths=...)` で処理対象のファイルパスを明示指定します。 |
-| `input_arrays` | `Iterable[np.ndarray]`（任意） | `run(input_arrays=...)` でNumPy配列を直接処理します。 |
-| `output_dir` | `str` または `Path`（任意） | `PipelineResult.save(output_dir)` に渡す保存先ディレクトリ。 |
-| `recursive` | `bool` | 画像収集時にサブディレクトリも走査するかどうか。 |
-| `preserve_structure` | `bool` | `True` の場合、入力の階層構造を `output_dir` 配下に再現します。`False` ならすべて直下に保存されます。 |
 | `worker_count` | `int`（任意） | 並列処理に使用する最大ワーカースレッド数。`None` でCPUコアの約70%、`1` で逐次処理、`0` で全コア使用。 |
 | `log` | `bool` | 処理中のプログレスバーと情報ログを有効にします。 |
 
@@ -493,12 +485,11 @@ for mapping in result.output_mappings:
 # 衝突処理のデモ
 pipeline = fi.Pipeline(
     steps=[fi.GrayscaleStep()],
-    preserve_structure=False,  # 出力をフラット化
     log=True,
 )
 
 result = pipeline.run(input_path="input")
-result.save("output")
+result.save("output", preserve_structure=False)  # 出力をフラット化
 for mapping in result.output_mappings:
     print(f"{mapping.input_path} -> {mapping.output_path}")
 # 出力:
@@ -604,11 +595,10 @@ def memory_safe_processing(input_path, output_path):
 # 日本語ファイル名は正しく動作
 pipeline = fi.Pipeline(
     steps=[fi.ResizeStep((256, 256))],
-    recursive=True,
     log=True,
 )
 
-result = pipeline.run(input_path="写真/入力")
+result = pipeline.run(input_path="写真/入力", recursive=True)
 result.save("写真/出力")
 print(f"日本語パスで {result.processed_count} 枚の画像を処理")
 ```
@@ -758,13 +748,12 @@ def prepare_ml_dataset(input_dir, output_dir, target_size=(224, 224), augment=Fa
 
     pipeline = fi.Pipeline(
         steps=steps,
-        preserve_structure=True,  # クラスフォルダを維持
         log=True,
         worker_count=6,
     )
 
     result = pipeline.run(input_path=input_dir)
-    result.save(output_dir)
+    result.save(output_dir, preserve_structure=True)  # クラスフォルダを維持
 
     # データセット統計を生成
     print(f"データセット準備完了:")
