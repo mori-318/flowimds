@@ -175,14 +175,15 @@ def test_pipeline_run_on_arrays_returns_transformed_images(
     image_paths = collect_image_paths(simple_input_dir)
     arrays = [cv2.imread(str(p), cv2.IMREAD_COLOR) for p in image_paths]
 
-    result = Pipeline(steps=[ResizeStep((16, 16))]).run(input_arrays=arrays)
-
+    result = Pipeline(steps=[ResizeStep((16, 16))]).run(input_arrays=arrays)  # type: ignore
     assert len(result.processed_images) == len(arrays)
     for processed in result.processed_images:
         assert processed.image.shape[:2] == (16, 16)
 
 
-def test_run_raises_when_multiple_input_sources_provided(simple_input_dir: Path) -> None:
+def test_run_raises_when_multiple_input_sources_provided(
+    simple_input_dir: Path,
+) -> None:
     """Error when multiple input source kinds are mixed."""
     image_paths = collect_image_paths(simple_input_dir)
     pipeline = Pipeline(steps=[])
