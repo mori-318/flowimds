@@ -78,7 +78,7 @@ print(f"Got {len(result.processed_images)} transformed images")
 
 `input_arrays` never touches the filesystem. It validates that every element in the input iterable is a NumPy array and stores transformed arrays inside the returned `PipelineResult`. Persist them later with `result.save(...)` if you want files on disk.
 
-When you only use `input_arrays`, the pipeline does not need any filesystem configuration. If you later call `run()` with `input_path` or `input_paths`, provide those arguments at call time.
+When you only use `input_arrays`, the pipeline does not need any filesystem configuration. If you later call `run()` with `input_path` or `input_paths`, provide those arguments at call time. If you want to persist the results to disk, call `result.save(output_path)`.
 
 ### Inspecting `PipelineResult`
 
@@ -452,7 +452,7 @@ print(f"Found {len(images)} supported images")
 
 **Solutions**:
 
-1. Ensure the directory passed to `PipelineResult.save(...)` exists (created automatically)
+1. Ensure the directory passed to `PipelineResult.save(output_path)` exists (created automatically)
 2. Check write permissions for output directory
 3. Inspect `result.failed_files` for specific failures
 4. Verify output mappings:

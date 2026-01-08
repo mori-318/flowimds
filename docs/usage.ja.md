@@ -77,7 +77,7 @@ print(f"Got {len(result.processed_images)} transformed images")
 
 `input_arrays` はファイルシステムを使わずに NumPy 配列だけを処理します。入力イテラブルの各要素が NumPy 配列かどうかを検証し、変換結果は `PipelineResult.processed_images` に蓄えられます。必要に応じて `result.save(...)` で任意のディレクトリへ書き出してください。
 
-`input_arrays` だけを利用する場合、`Pipeline` の初期化時にパスを設定する必要はありません。後から `run(input_path=...)` や `run(input_paths=...)` を呼ぶときは、必要な入力をその都度 `run(...)` に渡してください。ファイルへ保存したい場合は `result.save(output_dir)` を呼びます。
+`input_arrays` だけを利用する場合、`Pipeline` の初期化時にパスを設定する必要はありません。後から `run(input_path=...)` や `run(input_paths=...)` を呼ぶときは、必要な入力をその都度 `run(...)` に渡してください。ファイルへ保存したい場合は `result.save(output_path)` を呼びます。
 
 ### `PipelineResult` を活用する
 
@@ -453,7 +453,7 @@ print(f"サポート対象画像 {len(images)} 枚を発見")
 **問題**: パイプラインは完了するが出力ファイルが表示されない
 
 **解決策**:
-1. `PipelineResult.save(output_dir)` で指定したディレクトリが存在するか確認（自動作成）
+1. `PipelineResult.save(output_path)` で指定したディレクトリが存在するか確認（自動作成）
 2. 出力ディレクトリの書き込み権限を確認
 3. 特定の失敗について `result.failed_files` を検査
 4. 出力マッピングを確認:

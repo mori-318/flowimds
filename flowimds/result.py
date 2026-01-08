@@ -39,20 +39,20 @@ class PipelineResult:
 
     def save(
         self,
-        output_dir: Path | str,
+        output_path: Path | str,
         preserve_structure: bool = False,
     ) -> None:
-        """Persist processed images to ``output_dir``.
+        """Persist processed images to ``output_path``.
 
         Args:
-            output_dir: Destination directory where processed images are written.
+            output_path: Destination directory where processed images are written.
             preserve_structure: Whether to mirror the input directory structure.
         """
 
         if not self.processed_images:
             return
 
-        destination_root = Path(output_dir)
+        destination_root = Path(output_path)
         destination_root.mkdir(parents=True, exist_ok=True)
 
         source_root = self.source_root

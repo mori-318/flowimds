@@ -53,7 +53,7 @@ result = pipeline.run(input_path="samples/input", recursive=True)
 
 # Save the results
 # Args:
-#   output_dir: destination directory
+#   output_path: destination directory
 #   preserve_structure: whether to mirror the input tree (default: False)
 result.save("samples/output", preserve_structure=True)
 
@@ -98,7 +98,7 @@ uv sync
 
 ## 🔬 Benchmarks
 
-Compare the legacy (v0.2.1-) and current (v1.0.1+) pipeline implementations with the bundled helper script. Running via `uv` keeps dependencies and the virtual environment consistent:
+Compare the legacy (v0.2.1-) and current (v1.0.2+) pipeline implementations with the bundled helper script. Running via `uv` keeps dependencies and the virtual environment consistent:
 
 ```bash
 # count: number of synthetic images to generate (default `5000`)
@@ -203,4 +203,4 @@ This project is released under the [MIT License](LICENSE).
 
 ## 📌 Project status
 
-Stable releases are already published on PyPI (v1.0.1), and we continue to iterate toward upcoming updates. Watch the repository for new tags and changelog announcements.
+Stable releases are already published on PyPI (v1.0.2), and we continue to iterate toward upcoming updates. Watch the repository for new tags and changelog announcements.
