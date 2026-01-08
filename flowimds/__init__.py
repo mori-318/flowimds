@@ -1,6 +1,9 @@
 """Convenient public API exports for ``flowimds``."""
 
-from flowimds.models import OutputMapping as OutputMapping, ProcessedImage as ProcessedImage
+from flowimds.models import (
+    OutputMapping as OutputMapping,
+    ProcessedImage as ProcessedImage,
+)
 from flowimds.pipeline import Pipeline as Pipeline
 from flowimds.result import PipelineResult as PipelineResult
 from flowimds.steps import (
