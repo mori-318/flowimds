@@ -25,3 +25,7 @@ flowimds is the open-source image-processing pipeline library that provides reus
 ## Commit Messages
 
 - Use semantic commit messages written in English, keeping the imperative present tense (e.g., `feat: add grayscale step`, `fix: handle empty pipeline config`), and commit in small, focused increments so reviews stay easy to follow.
+
+
+## Other instructions
+- All comments in code are written in English.
