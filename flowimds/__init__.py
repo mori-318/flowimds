@@ -1,6 +1,8 @@
 """Convenient public API exports for ``flowimds``."""
 
-from flowimds.pipeline import OutputMapping, Pipeline, PipelineResult
+from flowimds.models import OutputMapping, ProcessedImage
+from flowimds.pipeline import Pipeline
+from flowimds.result import PipelineResult
 from flowimds.steps import (
     BinarizeStep,
     DenoiseStep,
@@ -17,6 +19,7 @@ __all__ = [
     "Pipeline",
     "PipelineResult",
     "OutputMapping",
+    "ProcessedImage",
     "PipelineStep",
     "ResizeStep",
     "GrayscaleStep",
