@@ -20,20 +20,33 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Set up uv
         uses: astral-sh/setup-uv@v1
         with:
-          python-version: "3.12"
-          enable-cache: true
+          version: "0.9.4"
+          enable-cache: false
 
       - name: Sync dependencies
         run: uv sync --group dev
 
-      - name: Run quality checks
+      - name: Run linters
         run: |
-          uv run black --check .
           uv run ruff check .
-          uv run pytest
+          uv run black --check .
+
+      - name: Run type checks
+        run: uv run mypy
+
+      - name: Run tests
+        run: uv run pytest
+
+      - name: Run pip-audit
+        run: uv run pip-audit
 
       - name: Build distributions
         run: uv run python -m build
