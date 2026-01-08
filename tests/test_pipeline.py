@@ -80,8 +80,8 @@ def test_pipeline_flattened_outputs_are_unique(
     write_image(str(input_root / "a" / "duplicate.png"), image)
     write_image(str(input_root / "b" / "duplicate.png"), image)
 
-    pipeline = Pipeline(steps=[ResizeStep((16, 16))], recursive=True)
-    result = pipeline.run(input_path=input_root)
+    pipeline = Pipeline(steps=[ResizeStep((16, 16))])
+    result = pipeline.run(input_path=input_root, recursive=True)
     result.save(output_dir)
 
     output_files = sorted(p.name for p in output_dir.glob("*.png"))
@@ -97,8 +97,8 @@ def test_pipeline_honours_recursive_flag(
     top_level = collect_image_paths(recursive_input_dir, recursive=False)
     all_images = collect_image_paths(recursive_input_dir, recursive=True)
 
-    non_rec = Pipeline(steps=[], recursive=False).run(input_path=recursive_input_dir)
-    rec = Pipeline(steps=[], recursive=True).run(input_path=recursive_input_dir)
+    non_rec = Pipeline(steps=[]).run(input_path=recursive_input_dir, recursive=False)
+    rec = Pipeline(steps=[]).run(input_path=recursive_input_dir, recursive=True)
 
     assert non_rec.processed_count == len(top_level)
     assert rec.processed_count == len(all_images)
@@ -213,14 +213,13 @@ def test_pipeline_result_save_is_noop_without_processed_images(tmp_path: Path) -
             "input_path": None,
             "output_path": None,
             "recursive": False,
-            "preserve_structure": False,
             "worker_count": 1,
             "log_enabled": False,
         },
         processed_images=[],
         source_root=None,
     )
-    result.save(tmp_path)
+    result.save(tmp_path, preserve_structure=False)
     assert not any(tmp_path.iterdir())
 
 
@@ -246,7 +245,6 @@ def test_pipeline_result_save_preserves_structure(tmp_path: Path) -> None:
             "input_path": str(source_root),
             "output_path": None,
             "recursive": True,
-            "preserve_structure": True,
             "worker_count": 1,
             "log_enabled": False,
         },
@@ -255,5 +253,5 @@ def test_pipeline_result_save_preserves_structure(tmp_path: Path) -> None:
     )
 
     destination = tmp_path / "output"
-    result.save(destination)
+    result.save(destination, preserve_structure=True)
     assert (destination / "nested" / "image.png").exists()

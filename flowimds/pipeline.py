@@ -39,7 +39,6 @@ class PipelineSettings(TypedDict):
     input_path: str | None
     output_path: str | None
     recursive: bool
-    preserve_structure: bool
     worker_count: int
     log_enabled: bool
 
@@ -68,11 +67,16 @@ class PipelineResult:
     processed_images: list[ProcessedImage]
     source_root: Path | None
 
-    def save(self, output_dir: Path | str) -> None:
+    def save(
+        self,
+        output_dir: Path | str,
+        preserve_structure: bool = False,
+    ) -> None:
         """Persist processed images to ``output_dir``.
 
         Args:
             output_dir: Destination directory where processed images are written.
+            preserve_structure: Whether to mirror the input directory structure.
         """
 
         if not self.processed_images:
@@ -81,7 +85,6 @@ class PipelineResult:
         destination_root = Path(output_dir)
         destination_root.mkdir(parents=True, exist_ok=True)
 
-        preserve_structure = bool(self.settings.get("preserve_structure", False))
         source_root = self.source_root
         input_setting = self.settings.get("input_path")
         if source_root is None and input_setting:
@@ -211,8 +214,6 @@ class Pipeline:
     def __init__(
         self,
         steps: Iterable[PipelineStep],
-        recursive: bool = False,
-        preserve_structure: bool = False,
         worker_count: int | None = None,
         log: bool = False,
     ) -> None:
@@ -220,8 +221,6 @@ class Pipeline:
 
         Args:
             steps: Iterable of processing steps that expose ``apply``.
-            recursive: Whether to traverse the input directory recursively.
-            preserve_structure: Whether to mirror the input directory structure.
             worker_count: Maximum number of worker threads used to process
                 images in parallel. ``None`` defaults to roughly 70% of the
                 CPU cores reported by :func:`os.cpu_count`.
@@ -230,10 +229,9 @@ class Pipeline:
         """
 
         self._steps = list(steps)
-        self._recursive = recursive
-        self._preserve_structure = preserve_structure
         self._worker_count = worker_count
         self._log_enabled = log
+        self._recursive = False
         self._input_path: Path | None = None
         self._output_path: Path | None = None
         self._destination_lock = Lock()
@@ -245,12 +243,20 @@ class Pipeline:
         input_path: Path | str | None = None,
         input_paths: Iterable[Path | str] | None = None,
         input_arrays: Iterable[np.ndarray] | None = None,
+        recursive: bool = False,
     ) -> PipelineResult:
         """Execute the pipeline and return the aggregated result.
+
+        Args:
+            input_path: Directory path to search for images.
+            input_paths: Explicit list of image file paths.
+            input_arrays: Iterable of numpy arrays representing images.
+            recursive: Whether to traverse the input directory recursively.
 
         Exactly one of ``input_path``, ``input_paths``, or ``input_arrays`` may be
         provided. When none are provided, the instance-level ``input_path`` is used.
         """
+        self._recursive = recursive
 
         self._validate_input_selection(
             input_path=input_path,
@@ -540,7 +546,6 @@ class Pipeline:
                 str(self._output_path) if self._output_path is not None else None
             ),
             recursive=self._recursive,
-            preserve_structure=self._preserve_structure,
             worker_count=self._resolve_worker_count(),
             log_enabled=self._log_enabled,
         )
