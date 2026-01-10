@@ -9,6 +9,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/mori-318/flowimds.svg" alt="License"></a>
   <a href="https://pypi.org/project/flowimds/"><img src="https://img.shields.io/pypi/pyversions/flowimds.svg" alt="Python Versions">
   </a>
+  <a href="https://pepy.tech/projects/flowimds"><img src="https://static.pepy.tech/personalized-badge/flowimds?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=ORANGE&left_text=downloads" alt="PyPI Downloads"></a>
 </p>
 
 Flowimds delivers reusable image-processing pipelines for entire directories—compose steps and let the tool handle the batch work for you.
