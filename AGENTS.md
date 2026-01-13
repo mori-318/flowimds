@@ -2,7 +2,7 @@
 
 ## About the flowimds repository
 
-flowimds is the open-source image-processing pipeline library that provides reusable, directory-wide image-processing pipelines. Compose steps like resizing, grayscale conversion, rotations, flips, binarization, and denoising, then run them as batch jobs that mirror the input folder hierarchy or flatten outputs into a single directory. The project targets Python 3.12+, ships under the MIT License, and is published on PyPI for easy installation.
+flowimds is the open-source image-processing pipeline library that provides reusable pipelines for directories, file lists, or in-memory NumPy arrays. Compose steps like resizing, grayscale conversion, rotations, flips, binarization, and denoising, then run them as batch jobs that mirror the input folder hierarchy or flatten outputs into a single directory. The project targets Python 3.12+, ships under the MIT License, and is published on PyPI for easy installation.
 
 ## Directory structure
 
