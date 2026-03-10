@@ -64,12 +64,15 @@ import numpy as np
 
 images = [np.zeros((128, 128, 3), dtype=np.uint8) for _ in range(4)]
 
-def brighten(image: np.ndarray) -> np.ndarray:
-    # Custom inline step; any object with an apply(image) -> image method works.
-    return np.clip(image + 40, 0, 255).astype(image.dtype)
+class BrightenStep:
+    def __init__(self, amount: int) -> None:
+        self.amount = amount
+
+    def apply(self, image: np.ndarray) -> np.ndarray:
+        return np.clip(image + self.amount, 0, 255).astype(image.dtype)
 
 pipeline = fi.Pipeline(
-    steps=[fi.GrayscaleStep(), brighten],
+    steps=[fi.GrayscaleStep(), BrightenStep(40)],
 )
 
 result = pipeline.run(input_arrays=images)
@@ -215,7 +218,8 @@ def robust_pipeline_processing(input_path, output_path, max_retries=2):
         retry_result.save(output_path)
 
         # Update failed files list
-        newly_failed = set(failed_files) - set(retry_result.output_mappings)
+        recovered = {str(mapping.input_path) for mapping in retry_result.output_mappings}
+        newly_failed = set(failed_files) - recovered
         failed_files = list(newly_failed)
 
         print(f"  Recovered: {retry_result.processed_count}, Still failing: {len(failed_files)}")
@@ -278,7 +282,7 @@ Pipelines accept either `str` or `pathlib.Path` values for filesystem paths. The
 | Setting | Type | Description |
 | --- | --- | --- |
 | `steps` | iterable of `PipelineStep` | Ordered sequence of transforms applied to each image. Any object exposing `apply(image)` can be used. |
-| `worker_count` | `int` (optional) | Maximum number of worker threads for parallel processing. `None` uses ~70% of CPU cores, `1` for sequential, `0` for all cores. |
+| `worker_count` | `int` (optional) | Maximum number of worker threads for parallel processing. `None` uses ~70% of CPU cores, `1` for sequential, `0` behaves the same as `None` (~70% of logical CPU cores). |
 | `log` | `bool` | Enable progress bars and informational logs during processing. |
 
 Remember that the order of the `steps` list matters: each step receives the image returned by the previous one.
@@ -306,7 +310,7 @@ result.save("output")
 **Worker count guidelines**:
 - `worker_count=None` (default): Auto-detect ~70% of CPU cores
 - `worker_count=1`: Sequential processing (useful for debugging)
-- `worker_count=0`: Uses all available CPU cores
+- `worker_count=0`: Treated the same as `None` (about 70% of logical CPU cores)
 
 **Performance tips**:
 - For I/O-bound workloads (many small images): consider `worker_count = cpu_count * 1.5`
@@ -715,7 +719,7 @@ def document_preprocessing(input_dir, output_dir):
         steps=[
             fi.ResizeStep((2000, 3000)),  # Standardize size
             fi.GrayscaleStep(),           # Convert to grayscale
-            fi.DenoiseStep(mode="gaussian", kernel_size=5),  # Remove noise
+            fi.DenoiseStep(mode="median", kernel_size=5),  # Remove noise
             fi.BinarizeStep(mode="otsu"),  # Optimal thresholding
         ],
         log=True,
@@ -915,7 +919,7 @@ class ImageProcessorHandler(FileSystemEventHandler):
             steps=[
                 fi.ResizeStep((1024, 768)),
                 fi.GrayscaleStep(),
-                fi.DenoiseStep(mode="gaussian", kernel_size=3),
+                fi.DenoiseStep(mode="median", kernel_size=3),
             ],
             worker_count=2,
         )
@@ -1479,42 +1483,9 @@ result.save("output")
 print(f"Processed {result.processed_count} images with custom pipeline")
 ```
 
-## API Reference
+## API Reference (Current Public API)
 
-### Core Classes
-
-#### Pipeline
-
-The main class for creating and executing image processing pipelines.
-
-```python
-class Pipeline:
-    """Image processing pipeline with parallel execution support."""
-
-    def __init__(
-        self,
-        steps: List[PipelineStep],
-        recursive: bool = False,
-        preserve_structure: bool = False,
-        worker_count: Optional[int] = None,
-        log: bool = False,
-    ):
-        """Initialize a new pipeline.
-
-        Args:
-            steps: List of processing steps implementing PipelineStep protocol
-            recursive: Whether to traverse the input directory recursively
-            preserve_structure: Whether to preserve directory structure when saving
-            worker_count: Number of parallel workers (default: ~70% CPU cores)
-            log: Enable detailed logging (default: False)
-        """
-```
-
-**Methods:**
-
-- `run(*, input_path=None, input_paths=None, input_arrays=None) -> PipelineResult`: Execute pipeline over directory, explicit paths, or in-memory arrays
-
-**Example:**
+### Pipeline
 
 ```python
 pipeline = fi.Pipeline(
@@ -1523,486 +1494,38 @@ pipeline = fi.Pipeline(
     log=True,
 )
 
-# Run on directory
-result = pipeline.run(input_path="input")
-result.save("output")
-
-# Run on specific files
-from pathlib import Path
-specific_files = [Path("img1.jpg"), Path("img2.jpg")]
-result = pipeline.run(input_paths=specific_files)
-result.save("output")
-
-# Run on numpy arrays
-import numpy as np
-arrays = [np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)]
-result = pipeline.run(input_arrays=arrays)
-```
-
-#### PipelineResult
-
-Contains results and metadata from pipeline execution.
-
-```python
-@dataclass
-class PipelineResult:
-    """Results from pipeline execution."""
-
-    processed_count: int
-    failed_count: int
-    failed_files: List[str]
-    output_mappings: List[FileMapping]
-    duration_seconds: float
-    settings: Dict[str, Any]
-
-    @property
-    def success_rate(self) -> float:
-        """Calculate success rate as percentage."""
-        if self.processed_count + self.failed_count == 0:
-            return 0.0
-        return (self.processed_count / (self.processed_count + self.failed_count)) * 100
-```
-
-**FileMapping:**
-```python
-@dataclass
-class FileMapping:
-    """Mapping between input and output files."""
-
-    input_path: str
-    output_path: str
-    success: bool
-    error_message: Optional[str] = None
-```
-
-### Built-in Steps
-
-#### ResizeStep
-
-Resize images to specified dimensions.
-
-```python
-class ResizeStep:
-    """Resize images to specified dimensions."""
-
-    def __init__(self, size: Tuple[int, int]):
-        """Initialize resize step.
-
-        Args:
-            size: Target size as (width, height) tuple
-        """
-
-    def apply(self, image: np.ndarray) -> np.ndarray:
-        """Resize image to target dimensions."""
-```
-
-**Example:**
-```python
-# Resize to square
-step = fi.ResizeStep((512, 512))
-
-# Resize to rectangular
-step = fi.ResizeStep((1024, 768))
-
-# Use in pipeline
-pipeline = fi.Pipeline(
-    steps=[fi.ResizeStep((800, 600))],
+result = pipeline.run(
+    input_path="input",      # or input_paths=[...], or input_arrays=[...]
+    recursive=False,
 )
-
-result = pipeline.run(input_path="input")
-result.save("output")
+result.save("output", preserve_structure=False)
 ```
 
-#### GrayscaleStep
+- `Pipeline(steps, worker_count=None, log=False)`
+- `run(*, input_path=None, input_paths=None, input_arrays=None, recursive=False) -> PipelineResult`
+- `PipelineResult.save(output_path, preserve_structure=False) -> None`
 
-Convert images to grayscale.
+### PipelineResult and models
 
-```python
-class GrayscaleStep:
-    """Convert color images to grayscale."""
+- `PipelineResult` fields:
+  - `processed_count`, `failed_count`, `failed_files`, `output_mappings`
+  - `duration_seconds`, `settings`, `processed_images`, `source_root`
+- `output_mappings` entries are `OutputMapping(input_path: Path, output_path: Path)`.
+- `settings` follows `PipelineSettings` (`TypedDict`), not a dedicated settings class.
 
-    def apply(self, image: np.ndarray) -> np.ndarray:
-        """Convert image to grayscale."""
-```
+### Built-in step modes
 
-**Example:**
-```python
-step = fi.GrayscaleStep()
-result = step.apply(color_image)  # Returns 2D array
-```
+- `DenoiseStep(mode="median" | "bilateral", ...)`
+- `BinarizeStep(mode="otsu" | "fixed", ...)`
 
-#### DenoiseStep
-
-Apply noise reduction to images.
+### Public utility functions
 
 ```python
-class DenoiseStep:
-    """Apply noise reduction to images."""
-
-    def __init__(self, mode: str = "gaussian", kernel_size: int = 5):
-        """Initialize denoise step.
-
-        Args:
-            mode: Denoising method ("gaussian", "median", "bilateral")
-            kernel_size: Size of the denoising kernel
-        """
-
-    def apply(self, image: np.ndarray) -> np.ndarray:
-        """Apply denoising to image."""
-```
-
-**Example:**
-```python
-# Gaussian blur
-gaussian_step = fi.DenoiseStep(mode="gaussian", kernel_size=5)
-
-# Median filter
-median_step = fi.DenoiseStep(mode="median", kernel_size=3)
-
-# Bilateral filter (preserves edges)
-bilateral_step = fi.DenoiseStep(mode="bilateral")
-```
-
-#### BinarizeStep
-
-Convert images to binary (black and white).
-
-```python
-class BinarizeStep:
-    """Convert images to binary using thresholding."""
-
-    def __init__(self, mode: str = "otsu", threshold: Optional[int] = None):
-        """Initialize binarize step.
-
-        Args:
-            mode: Thresholding method ("otsu", "adaptive", "fixed")
-            threshold: Fixed threshold value (required for "fixed" mode)
-        """
-
-    def apply(self, image: np.ndarray) -> np.ndarray:
-        """Convert image to binary."""
-```
-
-**Example:**
-```python
-# Otsu's automatic thresholding
-otsu_step = fi.BinarizeStep(mode="otsu")
-
-# Fixed threshold
-fixed_step = fi.BinarizeStep(mode="fixed", threshold=127)
-
-# Adaptive thresholding
-adaptive_step = fi.BinarizeStep(mode="adaptive")
-```
-
-#### FlipStep
-
-Flip images horizontally and/or vertically.
-
-```python
-class FlipStep:
-    """Flip images horizontally and/or vertically."""
-
-    def __init__(self, horizontal: bool = False, vertical: bool = False):
-        """Initialize flip step.
-
-        Args:
-            horizontal: Flip horizontally (default: False)
-            vertical: Flip vertically (default: False)
-        """
-
-    def apply(self, image: np.ndarray) -> np.ndarray:
-        """Flip image according to specified axes."""
-```
-
-**Example:**
-```python
-# Horizontal flip
-h_flip = fi.FlipStep(horizontal=True)
-
-# Vertical flip
-v_flip = fi.FlipStep(vertical=True)
-
-# Both horizontal and vertical
-both_flip = fi.FlipStep(horizontal=True, vertical=True)
-```
-
-### Utility Functions
-
-#### Image Loading and Saving
-
-```python
-def load_image(path: str) -> np.ndarray:
-    """Load image from file path.
-
-    Args:
-        path: Path to image file
-
-    Returns:
-        Image as numpy array
-
-    Raises:
-        FileNotFoundError: If file doesn't exist
-        ValueError: If file is not a valid image
-    """
-
-def save_image(image: np.ndarray, path: str) -> None:
-    """Save image to file path.
-
-    Args:
-        image: Image as numpy array
-        path: Output file path
-
-    Raises:
-        ValueError: If image format is not supported
-    """
-```
-
-#### Image Validation
-
-```python
-def validate_image(image: np.ndarray) -> bool:
-    """Validate if array is a valid image.
-
-    Args:
-        image: Array to validate
-
-    Returns:
-        True if valid image, False otherwise
-    """
-
-def get_image_info(image: np.ndarray) -> Dict[str, Any]:
-    """Get information about image array.
-
-    Args:
-        image: Image array
-
-    Returns:
-        Dictionary with image metadata
-    """
-```
-
-### Configuration
-
-#### Pipeline Settings
-
-```python
-class PipelineSettings:
-    """Configuration settings for pipeline execution."""
-
-    def __init__(
-        self,
-        max_workers: int = 4,
-        chunk_size: int = 100,
-        timeout_seconds: int = 300,
-        retry_attempts: int = 3,
-        memory_limit_mb: int = 1024,
-    ):
-        """Initialize pipeline settings.
-
-        Args:
-            max_workers: Maximum number of worker processes
-            chunk_size: Number of images per processing chunk
-            timeout_seconds: Timeout for individual image processing
-            retry_attempts: Number of retry attempts for failed images
-            memory_limit_mb: Memory limit per worker in MB
-        """
-```
-
-#### Logging Configuration
-
-```python
-def configure_logging(
-    level: str = "INFO",
-    format_string: Optional[str] = None,
-    file_path: Optional[str] = None,
-) -> None:
-    """Configure logging for pipeline operations.
-
-    Args:
-        level: Logging level ("DEBUG", "INFO", "WARNING", "ERROR")
-        format_string: Custom log format string
-        file_path: Log file path (optional, defaults to stdout)
-    """
-```
-
-### Error Types
-
-#### Pipeline Exceptions
-
-```python
-class PipelineError(Exception):
-    """Base exception for pipeline errors."""
-    pass
-
-class StepExecutionError(PipelineError):
-    """Error during step execution."""
-
-    def __init__(self, step_name: str, message: str):
-        self.step_name = step_name
-        super().__init__(f"Error in step '{step_name}': {message}")
-
-class ImageLoadError(PipelineError):
-    """Error loading image file."""
-    pass
-
-class ImageSaveError(PipelineError):
-    """Error saving image file."""
-    pass
-
-class ValidationError(PipelineError):
-    """Error during input validation."""
-    pass
-```
-
-### Performance Monitoring
-
-#### Performance Metrics
-
-```python
-@dataclass
-class PerformanceMetrics:
-    """Performance metrics for pipeline execution."""
-
-    total_images: int
-    processed_images: int
-    failed_images: int
-    total_time: float
-    average_time_per_image: float
-    memory_usage_mb: float
-    cpu_usage_percent: float
-
-    @classmethod
-    def from_pipeline_result(cls, result: PipelineResult) -> "PerformanceMetrics":
-        """Create metrics from pipeline result."""
-        return cls(
-            total_images=result.processed_count + result.failed_count,
-            processed_images=result.processed_count,
-            failed_images=result.failed_count,
-            total_time=result.duration_seconds,
-            average_time_per_image=result.duration_seconds / max(1, result.processed_count),
-            memory_usage_mb=0.0,  # Would be populated during execution
-            cpu_usage_percent=0.0,  # Would be populated during execution
-        )
-```
-
-#### Memory Profiling
-
-```python
-def profile_memory_usage(func: Callable) -> Callable:
-    """Decorator to profile memory usage of a function.
-
-    Args:
-        func: Function to profile
-
-    Returns:
-        Wrapped function that reports memory usage
-    """
-
-def get_memory_usage() -> Dict[str, float]:
-    """Get current memory usage statistics.
-
-    Returns:
-        Dictionary with memory usage information
-    """
-```
-
-### Batch Processing
-
-#### Batch Operations
-
-```python
-def process_in_batches(
-    pipeline: Pipeline,
-    input_paths: List[str],
-    batch_size: int = 100,
-) -> List[PipelineResult]:
-    """Process images in batches to manage memory usage.
-
-    Args:
-        pipeline: Pipeline to execute
-        input_paths: List of input file paths
-        batch_size: Number of images per batch
-
-    Returns:
-        List of results for each batch
-    """
-
-def merge_batch_results(results: List[PipelineResult]) -> PipelineResult:
-    """Merge multiple batch results into single result.
-
-    Args:
-        results: List of batch results
-
-    Returns:
-        Combined pipeline result
-    """
-```
-
-### Integration Examples
-
-#### With NumPy
-
-```python
-import numpy as np
 import flowimds as fi
 
-# Create synthetic images
-images = [
-    np.random.randint(0, 255, (512, 512, 3), dtype=np.uint8)
-    for _ in range(100)
-]
-
-# Process with pipeline
-pipeline = fi.Pipeline(steps=[
-    fi.ResizeStep((256, 256)),
-    fi.GrayscaleStep(),
-])
-
-result = pipeline.run(input_arrays=images)
-print(f"Processed {result.processed_count} synthetic images")
+image = fi.read_image("input.png")
+ok = fi.write_image("output.png", image)
+paths = fi.collect_image_paths("images", recursive=True)
 ```
 
-#### With OpenCV
-
-```python
-import cv2
-import flowimds as fi
-
-# Custom step using OpenCV
-class OpenCVCustomStep:
-    def apply(self, image):
-        # Use OpenCV functions directly
-        return cv2.medianBlur(image, 5)
-
-# Integrate with flowimds
-pipeline = fi.Pipeline(steps=[
-    fi.ResizeStep((512, 512)),
-    OpenCVCustomStep(),
-    fi.BinarizeStep(mode="otsu"),
-])
-```
-
-#### With Pillow
-
-```python
-from PIL import Image
-import flowimds as fi
-import numpy as np
-
-class PillowStep:
-    def apply(self, image):
-        # Convert to PIL Image
-        pil_image = Image.fromarray(image)
-
-        # Apply PIL operations
-        pil_image = pil_image.convert('L')  # Grayscale
-
-        # Convert back to numpy
-        return np.array(pil_image)
-
-pipeline = fi.Pipeline(steps=[
-    PillowStep(),
-    fi.ResizeStep((256, 256)),
-])
-```
+The package exports `read_image`, `write_image`, `collect_image_paths`, and `IMAGE_SUFFIXES` from `flowimds`.
