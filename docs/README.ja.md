@@ -10,8 +10,7 @@
   <a href="https://pypi.org/project/flowimds/"><img src="https://img.shields.io/pypi/pyversions/flowimds.svg" alt="対応 Python バージョン"></a>
 </p>
 
-> 毎回、全ての画像を一括で処理するコードを書くのは面倒くさいです。flowimdsは、そのような課題を解決します。
-> パイプラインを活用してシンプルな画像一括処理コードを書くことができます。
+flowimdsは、ディレクトリ、ファイルリスト、NumPy配列などを対象に、パイプラインで画像を一括処理できるライブラリです。
 
 [英語版](../README.md)
 
@@ -148,50 +147,6 @@ uv run python scripts/generate_test_data.py
 # テスト実行
 uv run pytest
 ```
-
-### Docker 開発環境
-
-`docker/Dockerfile` からビルドしたコンテナを使えば、依存関係を共通化した状態で開発できます。主なワークフローは次の 2 パターンです。
-
-1. **テストを一度だけ実行したい場合**（テスト完了でコンテナ終了）
-
-   ```bash
-   docker compose -f docker/docker-compose.yml up --build
-   ```
-
-2. **開発中に対話的に作業したい場合**（推奨）
-
-   ```bash
-   # イメージをビルド（キャッシュ済みなら何もしません）
-   docker compose -f docker/docker-compose.yml build
-
-   # シェル付きでコンテナを起動
-   docker compose -f docker/docker-compose.yml run --rm app bash
-
-   # コンテナ内（最初から /app のため cd 不要）
-   uv sync --all-extras --dev   # 依存関係をマウント済み .venv にインストール
-   uv run pytest
-   uv run black --check .
-   ```
-
-`docker compose exec app ...` は `up` で起動したコンテナが稼働中の間だけ使用できます。本リポジトリではデフォルトコマンドがテスト完了後に終了するため、対話作業には `run --rm app bash` を使ってください。
-
-### Dev Container
-
-VS Code の Dev Container 設定がリポジトリルートの `.devcontainer/` ディレクトリに用意されています。**Dev Containers** 拡張機能を使うことで、このリポジトリをコンテナ内で開き、再現性のある Docker ベースの開発環境で作業できます。
-
-#### VS Code からの利用手順
-
-1. Docker をインストールして起動します。
-2. VS Code に「Dev Containers」拡張機能をインストールします。
-3. このリポジトリを VS Code で開き、コマンドパレットから「Dev Containers: Reopen in Container」を実行します。
-4. コンテナ内で依存関係をインストールし、通常どおり開発コマンドを実行します。
-
-   ```bash
-   uv sync --all-extras --dev
-   uv run pytest
-   uv run black --check .
-   ```
 
 ## 📄 ライセンス
 
