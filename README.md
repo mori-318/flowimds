@@ -100,12 +100,12 @@ Compare the legacy (v0.2.1-) and current (v1.0.2+) pipeline implementations with
 
 ```bash
 # count: number of synthetic images to generate (default `5000`)
-# workers: maximum worker threads (`0` auto-detects CPU cores)
+# workers: maximum worker threads (`0` uses all logical CPU cores)
 uv run python scripts/benchmark_pipeline.py --count 5000 --workers 8
 ```
 
 - `--count`: number of synthetic images to generate (default `5000`).
-- `--workers`: maximum worker threads (`0` auto-detects CPU cores).
+- `--workers`: maximum worker threads (`0` uses all logical CPU cores).
 - `--seed`: specify the seed (default `42`) for reproducible comparisons.
 
 The script prints processing times for each pipeline variant and cleans up temporary outputs afterward.

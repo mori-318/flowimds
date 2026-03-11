@@ -63,12 +63,8 @@ import numpy as np
 
 images = [np.zeros((128, 128, 3), dtype=np.uint8) for _ in range(4)]
 
-def brighten(image: np.ndarray) -> np.ndarray:
-    # apply(image) -> image を実装するオブジェクトなら独自ステップとして利用可能
-    return np.clip(image + 40, 0, 255).astype(image.dtype)
-
 pipeline = fi.Pipeline(
-    steps=[fi.GrayscaleStep(), brighten],
+    steps=[fi.GrayscaleStep(), fi.ResizeStep((128, 128))],
 )
 
 result = pipeline.run(input_arrays=images)
@@ -280,7 +276,7 @@ def debug_failed_images(failed_files):
 | 設定項目 | 型 | 説明 |
 | --- | --- | --- |
 | `steps` | `PipelineStep` の反復可能オブジェクト | 各画像に順番に適用される変換のリスト。`apply(image)` を持つオブジェクトなら自作ステップも使えます。 |
-| `worker_count` | `int`（任意） | 並列処理に使用する最大ワーカースレッド数。`None` でCPUコアの約70%、`1` で逐次処理、`0` で全コア使用。 |
+| `worker_count` | `int`（任意） | 並列処理に使用する最大ワーカースレッド数。`None` でCPUコアの約70%、`1` で逐次処理、`0` は `None` と同じ。 |
 | `log` | `bool` | 処理中のプログレスバーと情報ログを有効にします。 |
 
 `steps` の順序はそのまま処理順序になります。前のステップの出力が次のステップの入力として渡される点に注意してください。
@@ -308,7 +304,7 @@ result.save("output")
 **ワーカー数のガイドライン**：
 - `worker_count=None`（デフォルト）：CPUコアの約70%を自動検出
 - `worker_count=1`：逐次処理（デバッグ時に便利）
-- `worker_count=0`：利用可能な全CPUコアを使用
+- `worker_count=0`：`None` と同じ（CPUコアの約70%を自動検出）
 
 **パフォーマンスのヒント**：
 - I/Oバウンドなワークロード（小さい画像が多数）：`worker_count = cpu_count * 1.5` を検討
@@ -854,18 +850,14 @@ class Pipeline:
 
     def __init__(
         self,
-        steps: List[PipelineStep],
-        recursive: bool = False,
-        preserve_structure: bool = False,
+        steps: Iterable[PipelineStep],
         worker_count: Optional[int] = None,
         log: bool = False,
     ):
         """新しいパイプラインを初期化
 
         Args:
-            steps: PipelineStepプロトコルを実装する処理ステップのリスト
-            recursive: サブディレクトリも走査するか（デフォルト: False）
-            preserve_structure: ディレクトリ構造を維持するか（デフォルト: False）
+            steps: PipelineStepプロトコルを実装する処理ステップのイテラブル
             worker_count: 並列ワーカー数（デフォルト: None = CPUコアの約70%）
             log: 詳細なロギングを有効にする（デフォルト: False）
         """
@@ -873,8 +865,8 @@ class Pipeline:
 
 **メソッド:**
 
-- `run(input_path=..., input_paths=..., input_arrays=...) -> PipelineResult`: 入力ソースを指定して実行
-- `PipelineResult.save(output_dir) -> None`: 変換済み画像を任意のディレクトリへ保存
+- `run(*, input_path=None, input_paths=None, input_arrays=None, recursive=False) -> PipelineResult`: 入力ソースを指定して実行
+- `PipelineResult.save(output_path, preserve_structure=False) -> None`: 変換済み画像を任意のディレクトリへ保存
 
 **例:**
 ```python
@@ -913,28 +905,21 @@ class PipelineResult:
     processed_count: int
     failed_count: int
     failed_files: List[str]
-    output_mappings: List[FileMapping]
+    output_mappings: List[OutputMapping]
     duration_seconds: float
-    settings: Dict[str, Any]
-
-    @property
-    def success_rate(self) -> float:
-        """成功率をパーセンテージで計算"""
-        if self.processed_count + self.failed_count == 0:
-            return 0.0
-        return (self.processed_count / (self.processed_count + self.failed_count)) * 100
+    settings: PipelineSettings
+    processed_images: List[ProcessedImage]
+    source_root: Optional[Path]
 ```
 
-**FileMapping:**
+**OutputMapping:**
 ```python
 @dataclass
-class FileMapping:
+class OutputMapping:
     """入力ファイルと出力ファイルのマッピング"""
 
-    input_path: str
-    output_path: str
-    success: bool
-    error_message: Optional[str] = None
+    input_path: Path
+    output_path: Path
 ```
 
 ### 組み込みステップ
@@ -1001,12 +986,12 @@ result = step.apply(color_image)  # 2D配列を返す
 class DenoiseStep:
     """画像にノイズ除去を適用"""
 
-    def __init__(self, mode: str = "gaussian", kernel_size: int = 5):
+    def __init__(self, mode: str = "median", kernel_size: int = 3):
         """ノイズ除去ステップを初期化
 
         Args:
-            mode: ノイズ除去方法（"gaussian", "median", "bilateral"）
-            kernel_size: ノイズ除去カーネルのサイズ
+            mode: ノイズ除去方法（"median", "bilateral"）
+            kernel_size: median モード時のカーネルサイズ
         """
 
     def apply(self, image: np.ndarray) -> np.ndarray:
@@ -1015,9 +1000,6 @@ class DenoiseStep:
 
 **例:**
 ```python
-# ガウシアンぼかし
-gaussian_step = fi.DenoiseStep(mode="gaussian", kernel_size=5)
-
 # メディアンフィルタ
 median_step = fi.DenoiseStep(mode="median", kernel_size=3)
 
@@ -1037,7 +1019,7 @@ class BinarizeStep:
         """二値化ステップを初期化
 
         Args:
-            mode: しきい値処理方法（"otsu", "adaptive", "fixed"）
+            mode: しきい値処理方法（"otsu", "fixed"）
             threshold: 固定しきい値（"fixed"モードで必須）
         """
 
@@ -1053,8 +1035,6 @@ otsu_step = fi.BinarizeStep(mode="otsu")
 # 固定しきい値
 fixed_step = fi.BinarizeStep(mode="fixed", threshold=127)
 
-# 適応しきい値処理
-adaptive_step = fi.BinarizeStep(mode="adaptive")
 ```
 
 #### FlipStep
@@ -1091,215 +1071,17 @@ both_flip = fi.FlipStep(horizontal=True, vertical=True)
 
 ### ユーティリティ関数
 
-#### 画像読み込みと保存
+`flowimds` が公開しているユーティリティ関数は次の2つです。
 
 ```python
-def load_image(path: str) -> np.ndarray:
-    """ファイルパスから画像を読み込み
-
-    Args:
-        path: 画像ファイルへのパス
-
-    Returns:
-        numpy配列としての画像
-
-    Raises:
-        FileNotFoundError: ファイルが存在しない場合
-        ValueError: ファイルが有効な画像でない場合
-    """
-
-def save_image(image: np.ndarray, path: str) -> None:
-    """画像をファイルパスに保存
-
-    Args:
-        image: numpy配列としての画像
-        path: 出力ファイルパス
-
-    Raises:
-        ValueError: 画像フォーマットがサポートされていない場合
-    """
+from flowimds import read_image, write_image
 ```
 
-#### 画像検証
+- `read_image(path: str) -> np.ndarray | None`: 画像を読み込む
+- `write_image(path: str, image: np.ndarray) -> bool`: 画像を書き込む
 
-```python
-def validate_image(image: np.ndarray) -> bool:
-    """配列が有効な画像か検証
-
-    Args:
-        image: 検証する配列
-
-    Returns:
-        有効な画像の場合はTrue、そうでなければFalse
-    """
-
-def get_image_info(image: np.ndarray) -> Dict[str, Any]:
-    """画像配列の情報を取得
-
-    Args:
-        image: 画像配列
-
-    Returns:
-        画像メタデータを含む辞書
-    """
-```
-
-### 設定
-
-#### パイプライン設定
-
-```python
-class PipelineSettings:
-    """パイプライン実行の設定"""
-
-    def __init__(
-        self,
-        max_workers: int = 4,
-        chunk_size: int = 100,
-        timeout_seconds: int = 300,
-        retry_attempts: int = 3,
-        memory_limit_mb: int = 1024,
-    ):
-        """パイプライン設定を初期化
-
-        Args:
-            max_workers: 最大ワーカープロセス数
-            chunk_size: 処理チャンクあたりの画像数
-            timeout_seconds: 個別画像処理のタイムアウト
-            retry_attempts: 失敗した画像の再試行回数
-            memory_limit_mb: ワーカーあたりのメモリ制限（MB）
-        """
-```
-
-#### ロギング設定
-
-```python
-def configure_logging(
-    level: str = "INFO",
-    format_string: Optional[str] = None,
-    file_path: Optional[str] = None,
-) -> None:
-    """パイプライン操作のロギングを設定
-
-    Args:
-        level: ロギングレベル（"DEBUG", "INFO", "WARNING", "ERROR"）
-        format_string: カスタムログフォーマット文字列
-        file_path: ログファイルパス（オプション、デフォルトはstdout）
-    """
-```
-
-### エラータイプ
-
-#### パイプライン例外
-
-```python
-class PipelineError(Exception):
-    """パイプラインエラーの基底例外"""
-    pass
-
-class StepExecutionError(PipelineError):
-    """ステップ実行中のエラー"""
-
-    def __init__(self, step_name: str, message: str):
-        self.step_name = step_name
-        super().__init__(f"ステップ '{step_name}' でのエラー: {message}")
-
-class ImageLoadError(PipelineError):
-    """画像ファイル読み込みエラー"""
-    pass
-
-class ImageSaveError(PipelineError):
-    """画像ファイル保存エラー"""
-    pass
-
-class ValidationError(PipelineError):
-    """入力検証中のエラー"""
-    pass
-```
-
-### パフォーマンス監視
-
-#### パフォーマンス指標
-
-```python
-@dataclass
-class PerformanceMetrics:
-    """パイプライン実行のパフォーマンス指標"""
-
-    total_images: int
-    processed_images: int
-    failed_images: int
-    total_time: float
-    average_time_per_image: float
-    memory_usage_mb: float
-    cpu_usage_percent: float
-
-    @classmethod
-    def from_pipeline_result(cls, result: PipelineResult) -> "PerformanceMetrics":
-        """パイプライン結果から指標を作成"""
-        return cls(
-            total_images=result.processed_count + result.failed_count,
-            processed_images=result.processed_count,
-            failed_images=result.failed_count,
-            total_time=result.duration_seconds,
-            average_time_per_image=result.duration_seconds / max(1, result.processed_count),
-            memory_usage_mb=0.0,  # 実行中に設定される
-            cpu_usage_percent=0.0,  # 実行中に設定される
-        )
-```
-
-#### メモリプロファイリング
-
-```python
-def profile_memory_usage(func: Callable) -> Callable:
-    """関数のメモリ使用量をプロファイルするデコレータ
-
-    Args:
-        func: プロファイルする関数
-
-    Returns:
-        メモリ使用量を報告するラップされた関数
-    """
-
-def get_memory_usage() -> Dict[str, float]:
-    """現在のメモリ使用量統計を取得
-
-    Returns:
-        メモリ使用量情報を含む辞書
-    """
-```
-
-### バッチ処理
-
-#### バッチ操作
-
-```python
-def process_in_batches(
-    pipeline: Pipeline,
-    input_paths: List[str],
-    batch_size: int = 100,
-) -> List[PipelineResult]:
-    """メモリ使用量を管理するためにバッチで画像を処理
-
-    Args:
-        pipeline: 実行するパイプライン
-        input_paths: 入力ファイルパスのリスト
-        batch_size: バッチあたりの画像数
-
-    Returns:
-        各バッチの結果リスト
-    """
-
-def merge_batch_results(results: List[PipelineResult]) -> PipelineResult:
-    """複数のバッチ結果を単一結果にマージ
-
-    Args:
-        results: バッチ結果のリスト
-
-    Returns:
-        結合されたパイプライン結果
-    """
-```
+`PipelineResult.settings` には `PipelineSettings`（TypedDict）として
+`input_path` / `output_path` / `recursive` / `worker_count` / `log_enabled` が保存されます。
 
 ### 統合例
 
