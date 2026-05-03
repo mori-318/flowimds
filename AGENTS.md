@@ -29,3 +29,4 @@ flowimds is the open-source image-processing pipeline library that provides reus
 
 ## Other instructions
 - All comments in code are written in English.
+- Don's use `pip` and `uv pip ` commands. only use `uv` commands for python.
